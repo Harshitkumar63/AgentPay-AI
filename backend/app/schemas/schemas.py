@@ -1,8 +1,8 @@
-"""Pydantic schemas for all API request/response models."""
+"""Pydantic schemas for all API request/response models with Pydantic V2 compatibility."""
 
 from datetime import datetime
-from typing import Optional, List, Any
-from pydantic import BaseModel, Field
+from typing import Optional, List, Any, Dict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Merchant ──────────────────────────────────────────────
@@ -17,8 +17,7 @@ class MerchantRead(MerchantBase):
     id: str
     created_at: datetime
     updated_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Product ───────────────────────────────────────────────
@@ -55,8 +54,7 @@ class ProductRead(ProductBase):
     slug: str
     created_at: datetime
     updated_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CatalogProduct(BaseModel):
     """AI-readable product format."""
@@ -70,12 +68,13 @@ class CatalogProduct(BaseModel):
     stock: int
     tags: List[str]
     purchase_allowed: bool
-    class Config:
-        from_attributes = True
+    metadata_extra: Optional[dict] = {}
+    model_config = ConfigDict(from_attributes=True)
 
 class CatalogResponse(BaseModel):
     merchant: dict
     products: List[CatalogProduct]
+    total_products: int = 0
 
 
 # ── Cart ──────────────────────────────────────────────────
@@ -91,12 +90,11 @@ class CartItemRead(BaseModel):
     quantity: int
     unit_price: float
     subtotal: float = 0
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CartCreate(BaseModel):
-    user_id: str
-    merchant_id: str
+    user_id: str = "demo_user"
+    merchant_id: str = "merchant_001"
 
 class CartRead(BaseModel):
     id: str
@@ -107,8 +105,7 @@ class CartRead(BaseModel):
     subtotal: float = 0
     total: float = 0
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CartCalculation(BaseModel):
     subtotal: float
@@ -122,8 +119,8 @@ class CartCalculation(BaseModel):
 
 class OrderCreate(BaseModel):
     cart_id: str
-    user_id: str
-    merchant_id: str
+    user_id: str = "demo_user"
+    merchant_id: str = "merchant_001"
     idempotency_key: Optional[str] = None
     order_type: str = "normal"
 
@@ -131,18 +128,18 @@ class OrderRead(BaseModel):
     id: str
     merchant_id: str
     user_id: str
-    cart_id: Optional[str]
-    razorpay_order_id: Optional[str]
+    cart_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
     amount: float
     currency: str
     status: str
     payment_status: str
-    receipt: Optional[str]
+    receipt: Optional[str] = None
+    idempotency_key: Optional[str] = None
     order_type: str
     created_at: datetime
     updated_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Payment ───────────────────────────────────────────────
@@ -153,16 +150,15 @@ class PaymentCreate(BaseModel):
 class PaymentRead(BaseModel):
     id: str
     order_id: str
-    razorpay_payment_id: Optional[str]
+    razorpay_payment_id: Optional[str] = None
     amount: float
     currency: str
     status: str
-    method: Optional[str]
-    error_code: Optional[str]
-    error_description: Optional[str]
+    method: Optional[str] = None
+    error_code: Optional[str] = None
+    error_description: Optional[str] = None
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PaymentVerify(BaseModel):
     razorpay_order_id: str
@@ -170,7 +166,7 @@ class PaymentVerify(BaseModel):
     razorpay_signature: str
 
 
-# ── Policy ────────────────────────────────────────────────
+# ── Policy & Risk ─────────────────────────────────────────
 
 class PolicyRead(BaseModel):
     id: str
@@ -182,8 +178,7 @@ class PolicyRead(BaseModel):
     allowed_actions: list
     created_at: datetime
     updated_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PolicyUpdate(BaseModel):
     max_purchase_amount: Optional[float] = None
@@ -194,9 +189,23 @@ class PolicyUpdate(BaseModel):
 
 class PolicyCheckResult(BaseModel):
     allowed: bool
+    policy_id: Optional[str] = None
+    risk_level: str = "LOW"
+    risk_score: int = 10
+    requires_approval: bool = False
     reason: str
-    requires_approval: bool
     details: dict = {}
+
+class PolicySimulateRequest(BaseModel):
+    merchant_id: str = "merchant_001"
+    amount: float
+    discount_percentage: float = 0.0
+    action: str = "create_order"
+
+class PolicySimulateResponse(BaseModel):
+    simulation: bool = True
+    input: dict
+    decision: PolicyCheckResult
 
 
 # ── Audit ─────────────────────────────────────────────────
@@ -206,18 +215,17 @@ class AuditLogRead(BaseModel):
     actor_type: str
     actor_id: str
     action: str
-    resource_type: Optional[str]
-    resource_id: Optional[str]
-    amount: Optional[float]
-    currency: Optional[str]
-    reason: Optional[str]
-    policy_result: Optional[str]
-    approval_status: Optional[str]
-    result: Optional[str]
-    metadata_extra: dict
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    reason: Optional[str] = None
+    policy_result: Optional[str] = None
+    approval_status: Optional[str] = None
+    result: Optional[str] = None
+    metadata_extra: dict = {}
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AuditLogCreate(BaseModel):
     actor_type: str
@@ -234,7 +242,23 @@ class AuditLogCreate(BaseModel):
     metadata_extra: dict = {}
 
 
-# ── Agent ─────────────────────────────────────────────────
+# ── Webhook Events ────────────────────────────────────────
+
+class WebhookEventRead(BaseModel):
+    id: str
+    event_id: Optional[str] = None
+    event_type: str
+    order_id: Optional[str] = None
+    payment_id: Optional[str] = None
+    status: str
+    payload: dict = {}
+    error_message: Optional[str] = None
+    retry_count: int = 0
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── Agent & AI Buyer API ──────────────────────────────────
 
 class AgentActionRead(BaseModel):
     id: str
@@ -244,11 +268,10 @@ class AgentActionRead(BaseModel):
     input_data: dict
     output_data: dict
     status: str
-    error_message: Optional[str]
-    duration_ms: Optional[int]
+    error_message: Optional[str] = None
+    duration_ms: Optional[int] = None
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ChatMessage(BaseModel):
     role: str  # user, assistant
@@ -266,10 +289,56 @@ class ChatResponse(BaseModel):
     session_id: str
     products: List[dict] = []
     cart: Optional[dict] = None
+    cart_id: Optional[str] = None
     actions: List[dict] = []
     requires_confirmation: bool = False
     confirmation_data: Optional[dict] = None
     agent_steps: List[dict] = []
+    explanation: Optional[dict] = None
+    demo_mode: bool = False
+
+# AI Buyer API Schemas (Phase 5)
+class BuyerSearchRequest(BaseModel):
+    query: Optional[str] = None
+    category: Optional[str] = None
+    max_price: Optional[float] = None
+    min_price: Optional[float] = None
+    color: Optional[str] = None
+    merchant_id: str = "merchant_001"
+    limit: int = 10
+
+class BuyerCheckoutRequest(BaseModel):
+    cart_id: str
+    user_id: str = "ai_buyer_agent"
+    merchant_id: str = "merchant_001"
+    idempotency_key: Optional[str] = None
+    order_type: str = "ai_assisted"
+
+
+# ── Merchant AI Copilot & Campaigns (Phase 26 & 27) ───────
+
+class CopilotQueryRequest(BaseModel):
+    query: str
+    merchant_id: str = "merchant_001"
+
+class CopilotQueryResponse(BaseModel):
+    answer: str
+    metrics_used: dict = {}
+    suggested_actions: List[str] = []
+    proposed_campaign: Optional[dict] = None
+
+class CampaignProposal(BaseModel):
+    id: str
+    title: str
+    target_segment: str
+    product_id: str
+    product_name: str
+    discount_percentage: float
+    budget: float
+    duration_days: int
+    estimated_opportunity: float
+    risk_level: str = "HIGH"
+    status: str = "proposed"  # proposed, approved, rejected, active
 
 
 # ── Analytics ─────────────────────────────────────────────
@@ -277,12 +346,15 @@ class ChatResponse(BaseModel):
 class RevenueAnalytics(BaseModel):
     total_revenue: float = 0
     total_orders: int = 0
+    successful_orders: int = 0
     average_order_value: float = 0
     conversion_rate: float = 0
     ai_assisted_revenue: float = 0
     upsell_revenue: float = 0
     cross_sell_revenue: float = 0
-    period: str = "all"
+    failed_payments_count: int = 0
+    blocked_actions_count: int = 0
+    period: str = "last_30_days"
 
 class ProductAnalytics(BaseModel):
     product_id: str
@@ -290,9 +362,10 @@ class ProductAnalytics(BaseModel):
     total_sold: int
     total_revenue: float
     category: str
+    stock: int = 0
 
 class GrowthRecommendation(BaseModel):
-    type: str  # cross_sell, upsell, low_conversion, high_demand
+    type: str  # cross_sell, upsell, low_conversion, high_demand, high_stock
     title: str
     description: str
     evidence: str
@@ -303,9 +376,10 @@ class GrowthRecommendation(BaseModel):
 
 # ── Error ─────────────────────────────────────────────────
 
+class ErrorDetails(BaseModel):
+    code: str
+    message: str
+    details: dict = {}
+
 class ErrorResponse(BaseModel):
-    error: dict = Field(default_factory=lambda: {
-        "code": "UNKNOWN_ERROR",
-        "message": "An unknown error occurred.",
-        "details": {}
-    })
+    error: ErrorDetails

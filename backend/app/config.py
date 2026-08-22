@@ -4,12 +4,14 @@ AgentPay AI — Application Configuration
 Loads settings from environment variables with safe defaults for development.
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Application
     app_name: str = "AgentPay AI"
@@ -53,9 +55,6 @@ class Settings(BaseSettings):
             return bool(self.google_api_key)
         return False
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 settings = Settings()
+

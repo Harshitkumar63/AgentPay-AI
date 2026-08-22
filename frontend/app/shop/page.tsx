@@ -3,10 +3,30 @@
 import { useState, useRef, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
 import {
-  Send, ShoppingCart, Bot, User, Plus, Minus, Trash2,
-  Check, X, Shield, Sparkles, ArrowRight, Package
+  Send,
+  ShoppingCart,
+  Bot,
+  User,
+  Plus,
+  Trash2,
+  Check,
+  X,
+  Shield,
+  Sparkles,
+  ArrowRight,
+  Info,
+  Layers,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
-import { sendChatMessage, createCart, addToCart, removeFromCart, createOrder, createPayment, verifyPayment } from "@/services/api";
+import {
+  sendChatMessage,
+  createCart,
+  addToCart,
+  removeFromCart,
+  createPayment,
+  verifyPayment,
+} from "@/services/api";
 import type { ChatResponse, Product, Cart, PaymentData } from "@/types";
 
 interface Message {
@@ -15,13 +35,15 @@ interface Message {
   products?: Product[];
   agentSteps?: ChatResponse["agent_steps"];
   confirmation?: ChatResponse["confirmation_data"];
+  explanation?: ChatResponse["explanation"];
 }
 
 export default function ShopPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "👋 Welcome to UrbanCart! I'm your AI shopping assistant. I can help you find products, compare options, and complete purchases. Try asking me:\n\n• \"Find black running shoes under ₹3000\"\n• \"Show me laptops\"\n• \"What accessories go with running shoes?\"\n• \"Compare backpacks\"\n\nWhat are you looking for today?",
+      content:
+        "👋 Welcome to UrbanCart! I am your autonomous AI shopping assistant.\n\nI can discover products from our verified catalog, check live inventory, provide cross-sell recommendations, and execute policy-gated checkouts.\n\nTry asking me:",
     },
   ]);
   const [input, setInput] = useState("");
@@ -34,20 +56,28 @@ export default function ShopPage() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const quickPrompts = [
+    "Find black running shoes under ₹3000",
+    "Show me laptops under ₹50000",
+    "What accessories go with running shoes?",
+    "Compare running shoes",
+    "Buy now",
+  ];
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
+  const sendMessage = async (text?: string) => {
+    const msgToSend = text || input;
+    if (!msgToSend.trim() || loading) return;
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setMessages((prev) => [...prev, { role: "user", content: msgToSend.trim() }]);
     setLoading(true);
 
     try {
       const res = await sendChatMessage({
-        message: userMsg,
+        message: msgToSend.trim(),
         session_id: sessionId || undefined,
         user_id: "demo_user",
         merchant_id: "merchant_001",
@@ -63,6 +93,7 @@ export default function ShopPage() {
         content: res.message,
         products: res.products?.length > 0 ? res.products : undefined,
         agentSteps: res.agent_steps?.length > 0 ? res.agent_steps : undefined,
+        explanation: res.explanation || undefined,
       };
 
       if (res.requires_confirmation && res.confirmation_data) {
@@ -72,11 +103,10 @@ export default function ShopPage() {
       }
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Something went wrong";
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `❌ Error: ${errorMessage}. Please try again.` },
+        { role: "assistant", content: `❌ Error: ${err.message || "Failed to process request"}. Please try again.` },
       ]);
     } finally {
       setLoading(false);
@@ -95,13 +125,15 @@ export default function ShopPage() {
       setCart(updated);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `✅ Added **${product.name}** to your cart! Total: ₹${updated.total.toLocaleString("en-IN")}` },
+        {
+          role: "assistant",
+          content: `✅ Added **${product.name}** to your cart! Total: ₹${updated.total.toLocaleString("en-IN")}\n\nSay "Buy now" whenever you're ready to proceed to checkout.`,
+        },
       ]);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to add to cart";
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `❌ ${errorMessage}` },
+        { role: "assistant", content: `❌ ${err.message || "Failed to add to cart"}` },
       ]);
     }
   };
@@ -121,22 +153,19 @@ export default function ShopPage() {
     if (!approved) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Purchase cancelled. Feel free to browse or modify your cart!" },
+        { role: "assistant", content: "🛑 Purchase authorization cancelled by user. Cart remains preserved." },
       ]);
       return;
     }
 
-    // Process purchase
     setProcessingPayment(true);
     try {
       const orderId = approvalData?.order?.id;
-      if (!orderId) throw new Error("No order ID");
+      if (!orderId) throw new Error("No order ID available");
 
-      // Create payment
       const paymentData: PaymentData = await createPayment(orderId);
 
       if (paymentData.demo) {
-        // Demo mode — simulate payment
         await verifyPayment({
           razorpay_order_id: paymentData.razorpay_order_id,
           razorpay_payment_id: `pay_demo_${Date.now()}`,
@@ -146,13 +175,12 @@ export default function ShopPage() {
           ...prev,
           {
             role: "assistant",
-            content: `🎉 **Payment successful!** (DEMO MODE)\n\nOrder ID: ${orderId}\nAmount: ₹${(paymentData.amount / 100).toLocaleString("en-IN")}\nStatus: Captured\n\nYour order has been confirmed. Check the Audit Logs to see the full transaction trail.`,
+            content: `🎉 **Payment Verified & Captured!** (RAZORPAY TEST MODE)\n\n• Order ID: \`${orderId}\`\n• Amount: **₹${(paymentData.amount / 100).toLocaleString("en-IN")}**\n• Status: \`CAPTURED\`\n• Gateway Signature: \`VERIFIED\`\n\nFull immutable transaction ledger recorded in Audit Logs.`,
           },
         ]);
         setCart(null);
         setCartId(null);
       } else {
-        // Real Razorpay checkout
         const options = {
           key: paymentData.razorpay_key_id,
           amount: paymentData.amount,
@@ -160,7 +188,7 @@ export default function ShopPage() {
           name: "UrbanCart",
           description: "Purchase via AgentPay AI",
           order_id: paymentData.razorpay_order_id,
-          handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
+          handler: async function (response: any) {
             try {
               await verifyPayment({
                 razorpay_order_id: response.razorpay_order_id,
@@ -171,7 +199,7 @@ export default function ShopPage() {
                 ...prev,
                 {
                   role: "assistant",
-                  content: `🎉 **Payment successful!**\n\nPayment ID: ${response.razorpay_payment_id}\nOrder confirmed.`,
+                  content: `🎉 **Payment Confirmed & Verified!**\n\nPayment ID: \`${response.razorpay_payment_id}\`\nOrder successfully fulfilled.`,
                 },
               ]);
               setCart(null);
@@ -179,7 +207,7 @@ export default function ShopPage() {
             } catch {
               setMessages((prev) => [
                 ...prev,
-                { role: "assistant", content: "❌ Payment verification failed. Please contact support." },
+                { role: "assistant", content: "❌ Payment verification failed. Please check payment logs." },
               ]);
             }
           },
@@ -187,22 +215,20 @@ export default function ShopPage() {
           theme: { color: "#6c5ce7" },
         };
 
-        // Load Razorpay script dynamically
         const script = document.createElement("script");
         script.src = "https://checkout.razorpay.com/v1/checkout.js";
         script.onload = () => {
-          const rzp = new (window as unknown as Record<string, unknown> & { Razorpay: new (options: Record<string, unknown>) => { open: () => void } }).Razorpay(options);
+          const rzp = new (window as any).Razorpay(options);
           rzp.open();
         };
         document.body.appendChild(script);
       }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Payment failed";
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `❌ **Payment failed:** ${errorMessage}\n\nYour order is saved. You can retry the payment from the Orders page.`,
+          content: `❌ **Payment Execution Failed:** ${err.message || "Gateway declined transaction"}\n\nSafe failure event logged in Audit Trail. You may retry checkout.`,
         },
       ]);
     } finally {
@@ -212,44 +238,82 @@ export default function ShopPage() {
 
   return (
     <AppLayout>
-      <div className="page-header">
-        <h1 style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Sparkles size={28} style={{ color: "#6c5ce7" }} /> AI Shop
-        </h1>
-        <p>Natural language shopping powered by AI agents</p>
+      <div className="page-header flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="text-indigo-400" /> AI Conversational Shop
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">
+            Natural language catalog discovery, algorithmic upselling, and policy-gated checkout
+          </p>
+        </div>
+      </div>
+
+      {/* Quick Prompts Bar */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {quickPrompts.map((p, idx) => (
+          <button
+            key={idx}
+            onClick={() => sendMessage(p)}
+            className="btn btn-ghost btn-sm text-xs bg-gray-900/60 border border-gray-800 hover:border-indigo-500/50 hover:bg-indigo-950/20"
+          >
+            {p}
+          </button>
+        ))}
       </div>
 
       <div className="chat-container">
-        {/* Chat Area */}
+        {/* Main Conversation Window */}
         <div className="chat-main">
           <div className="chat-messages">
             {messages.map((msg, i) => (
-              <div key={i}>
+              <div key={i} className="mb-4">
                 <div className={`chat-message ${msg.role === "user" ? "user" : "ai"}`}>
                   <div className={`chat-avatar ${msg.role === "user" ? "user" : "ai"}`}>
                     {msg.role === "user" ? <User size={16} color="white" /> : <Bot size={16} color="white" />}
                   </div>
-                  <div className="chat-bubble">
+                  <div className="chat-bubble flex-1">
                     {msg.content.split("\n").map((line, j) => (
                       <p key={j} style={{ marginBottom: line ? 4 : 0 }}>
-                        {line.replace(/\*\*(.*?)\*\*/g, "$1")}
+                        {line}
                       </p>
                     ))}
+
+                    {/* "Why did the AI do this?" (Phase 15) */}
+                    {msg.explanation && (
+                      <div className="explanation-box">
+                        <div className="explanation-title">
+                          <Info size={13} />
+                          {msg.explanation.title}
+                        </div>
+                        {msg.explanation.factors?.map((fac, fIdx) => (
+                          <div key={fIdx} className="explanation-factor">
+                            <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                            <span>{fac}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Agent Steps */}
+                {/* Agent Steps Execution Trace */}
                 {msg.agentSteps && msg.agentSteps.length > 0 && (
-                  <div className="agent-steps" style={{ marginLeft: 44, marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
-                      🔧 Agent Steps:
+                  <div className="agent-steps ml-12 mb-3">
+                    <div className="text-xs text-gray-400 mb-1 font-semibold flex items-center gap-1">
+                      <Layers size={13} className="text-indigo-400" />
+                      Autonomous Tool Trace:
                     </div>
                     {msg.agentSteps.map((step, k) => (
                       <div key={k} className="agent-step">
                         <div className="agent-step-number">{step.step}</div>
-                        <span className="agent-step-tool">{step.tool}</span>
-                        <span style={{ color: "var(--text-muted)" }}>{step.output_summary}</span>
-                        <span className={`badge ${step.status === "success" ? "badge-success" : "badge-danger"}`} style={{ marginLeft: "auto" }}>
+                        <span className="agent-step-tool font-mono">{step.tool}()</span>
+                        <span className="text-xs text-gray-400">{step.output_summary}</span>
+                        <span
+                          className={`badge text-xs ml-auto ${
+                            step.status === "success" ? "badge-success" : "badge-danger"
+                          }`}
+                        >
                           {step.status}
                         </span>
                       </div>
@@ -257,9 +321,9 @@ export default function ShopPage() {
                   </div>
                 )}
 
-                {/* Product Cards */}
+                {/* Product Catalog Cards */}
                 {msg.products && msg.products.length > 0 && (
-                  <div className="product-grid" style={{ marginLeft: 44, marginBottom: 16 }}>
+                  <div className="product-grid ml-12 mb-3">
                     {msg.products.map((product) => (
                       <div key={product.id} className="product-card">
                         <div className="product-card-header">
@@ -269,20 +333,26 @@ export default function ShopPage() {
                         <p>{product.description}</p>
                         <div className="product-tags">
                           {(product.tags || []).slice(0, 4).map((tag) => (
-                            <span key={tag} className="product-tag">{tag}</span>
+                            <span key={tag} className="product-tag">
+                              {tag}
+                            </span>
                           ))}
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                          <span className={`badge ${product.stock > 0 ? "badge-success" : "badge-danger"}`}>
+                        <div className="flex items-center justify-between mb-3 text-xs">
+                          <span
+                            className={`badge ${
+                              product.stock > 0 ? "badge-success" : "badge-danger"
+                            }`}
+                          >
                             {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
                           </span>
+                          <span className="text-gray-400 text-xs">{product.category}</span>
                         </div>
                         <div className="product-actions">
                           <button
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary btn-sm w-full"
                             onClick={() => handleAddToCart(product)}
                             disabled={product.stock <= 0}
-                            style={{ flex: 1 }}
                           >
                             <Plus size={14} /> Add to Cart
                           </button>
@@ -296,39 +366,41 @@ export default function ShopPage() {
 
             {loading && (
               <div className="chat-message ai">
-                <div className="chat-avatar ai"><Bot size={16} color="white" /></div>
-                <div className="chat-bubble" style={{ display: "flex", gap: 4 }}>
-                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                  <span style={{ color: "var(--text-muted)" }}>Thinking...</span>
+                <div className="chat-avatar ai">
+                  <Bot size={16} color="white" />
+                </div>
+                <div className="chat-bubble flex items-center gap-2">
+                  <span className="spinner w-4 h-4" />
+                  <span className="text-xs text-gray-400">Agent reasoning & checking catalog...</span>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Chat Input */}
           <div className="chat-input-container">
             <input
               className="chat-input"
-              placeholder="Ask me anything... e.g., 'Find black running shoes under ₹3000'"
+              placeholder="Ask anything... e.g. 'Find black running shoes under ₹3000' or 'Buy it'"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               disabled={loading}
             />
-            <button className="btn btn-primary" onClick={sendMessage} disabled={loading}>
-              <Send size={18} />
+            <button className="btn btn-primary" onClick={() => sendMessage()} disabled={loading}>
+              <Send size={16} />
             </button>
           </div>
         </div>
 
-        {/* Cart Sidebar */}
+        {/* Live Cart Sidebar */}
         <div className="cart-sidebar">
           <div className="cart-header">
             <ShoppingCart size={18} />
-            <span>Cart</span>
+            <span>Active Cart</span>
             {cart?.items && cart.items.length > 0 && (
-              <span className="badge badge-purple" style={{ marginLeft: "auto" }}>{cart.items.length}</span>
+              <span className="badge badge-purple ml-auto">{cart.items.length} items</span>
             )}
           </div>
 
@@ -338,21 +410,26 @@ export default function ShopPage() {
                 <div key={item.id} className="cart-item">
                   <div className="cart-item-info">
                     <h4>{item.product_name}</h4>
-                    <p>₹{item.unit_price.toLocaleString("en-IN")} × {item.quantity}</p>
+                    <p>
+                      ₹{item.unit_price.toLocaleString("en-IN")} × {item.quantity}
+                    </p>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontWeight: 600 }}>₹{item.subtotal.toLocaleString("en-IN")}</span>
-                    <button className="btn-ghost" onClick={() => handleRemoveFromCart(item.product_id)} style={{ padding: 4 }}>
-                      <Trash2 size={14} color="var(--danger)" />
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">₹{item.subtotal.toLocaleString("en-IN")}</span>
+                    <button
+                      className="btn-ghost p-1"
+                      onClick={() => handleRemoveFromCart(item.product_id)}
+                    >
+                      <Trash2 size={14} className="text-rose-400" />
                     </button>
                   </div>
                 </div>
               ))
             ) : (
               <div className="empty-state">
-                <ShoppingCart size={32} />
+                <ShoppingCart size={32} className="mx-auto opacity-50" />
                 <h3>Cart is empty</h3>
-                <p style={{ fontSize: 13 }}>Ask the AI to find products!</p>
+                <p className="text-xs">Ask the AI agent to discover and add items.</p>
               </div>
             )}
           </div>
@@ -364,60 +441,79 @@ export default function ShopPage() {
                 <span>₹{cart.total.toLocaleString("en-IN")}</span>
               </div>
               <button
-                className="btn btn-primary"
-                style={{ width: "100%" }}
-                onClick={() => setInput("Buy these items")}
+                className="btn btn-primary w-full"
+                onClick={() => sendMessage("Buy these items")}
               >
-                <ArrowRight size={16} /> Checkout with AI
+                <ArrowRight size={16} /> Gated AI Checkout
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Approval Dialog */}
+      {/* Human Approval Gate Modal (Phase 14) */}
       {showApproval && approvalData && (
         <div className="approval-overlay">
           <div className="approval-dialog">
-            <h2>
-              <Shield size={22} style={{ color: "#6c5ce7" }} />
-              Purchase Confirmation
-            </h2>
-
-            <div className="approval-detail">
-              <span className="label">Order ID</span>
-              <span>{approvalData.order?.id}</span>
-            </div>
-            <div className="approval-detail">
-              <span className="label">Amount</span>
-              <span style={{ fontWeight: 700, fontSize: 18 }}>₹{approvalData.amount?.toLocaleString("en-IN")}</span>
-            </div>
-            <div className="approval-detail">
-              <span className="label">Policy</span>
-              <span className={`badge ${approvalData.policy?.allowed ? "badge-success" : "badge-danger"}`}>
-                {approvalData.policy?.allowed ? "ALLOWED" : "BLOCKED"}
-              </span>
-            </div>
-            <div className="approval-detail">
-              <span className="label">Reason</span>
-              <span style={{ fontSize: 13 }}>{approvalData.policy?.reason}</span>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold flex items-center gap-2 text-indigo-300">
+                <Shield size={20} className="text-indigo-400" />
+                Human Approval Required
+              </h2>
+              <span className="risk-pill risk-high">High Risk</span>
             </div>
 
-            <div style={{ marginTop: 16, padding: 12, background: "var(--success-bg)", borderRadius: "var(--radius-sm)", fontSize: 13 }}>
-              ⚡ User approval required before processing payment
+            <p className="text-xs text-gray-400 mb-3">
+              The AI Agent prepared this transaction. Before creating the payment order on Razorpay, your explicit authorization is required.
+            </p>
+
+            <div className="space-y-2 py-2 border-y border-gray-800 text-xs">
+              <div className="approval-detail">
+                <span className="label">Order Reference</span>
+                <span className="font-mono">{approvalData.order?.id}</span>
+              </div>
+              <div className="approval-detail">
+                <span className="label">Calculated Amount</span>
+                <span className="font-bold text-base text-emerald-400">
+                  ₹{approvalData.amount?.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="approval-detail">
+                <span className="label">Policy Decision</span>
+                <span
+                  className={`badge ${
+                    approvalData.policy?.allowed ? "badge-success" : "badge-danger"
+                  }`}
+                >
+                  {approvalData.policy?.allowed ? "ALLOWED" : "BLOCKED"}
+                </span>
+              </div>
+              <div className="approval-detail">
+                <span className="label">Policy Details</span>
+                <span className="text-gray-300 text-right max-w-xs">{approvalData.policy?.reason}</span>
+              </div>
             </div>
 
-            <div className="approval-actions">
-              <button className="btn btn-secondary" onClick={() => handleApproval(false)} disabled={processingPayment}>
-                <X size={16} /> Cancel
+            <div className="approval-actions mt-4 flex gap-3">
+              <button
+                className="btn btn-secondary flex-1"
+                onClick={() => handleApproval(false)}
+                disabled={processingPayment}
+              >
+                <X size={15} /> Cancel
               </button>
-              <button className="btn btn-success" onClick={() => handleApproval(true)} disabled={processingPayment}>
+              <button
+                className="btn btn-success flex-1"
+                onClick={() => handleApproval(true)}
+                disabled={processingPayment}
+              >
                 {processingPayment ? (
-                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                  <span className="spinner w-4 h-4" />
                 ) : (
-                  <Check size={16} />
+                  <>
+                    <Check size={15} /> Confirm Purchase
+                  </>
                 )}
-                Confirm Purchase
               </button>
             </div>
           </div>

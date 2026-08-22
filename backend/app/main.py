@@ -82,7 +82,7 @@ async def health():
 
 
 # Import and register routers
-from app.api import products, cart, orders, payments, analytics, agent, policies, audit, webhooks
+from app.api import products, cart, orders, payments, analytics, agent, policies, audit, webhooks, buyer_api
 
 app.include_router(products.router, prefix="/api", tags=["Products"])
 app.include_router(cart.router, prefix="/api", tags=["Cart"])
@@ -93,3 +93,5 @@ app.include_router(agent.router, prefix="/api", tags=["Agent"])
 app.include_router(policies.router, prefix="/api", tags=["Policies"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
+app.include_router(buyer_api.router, prefix="/api", tags=["AI Buyer API (v1)"])
+

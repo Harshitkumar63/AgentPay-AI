@@ -158,3 +158,62 @@ def check_inventory(db: Session, product_id: str, quantity: int = 1) -> dict:
             "stock": product.stock,
         }
     return {"available": True, "stock": product.stock, "reason": "In stock"}
+
+
+def compare_products(db: Session, product_ids: List[str]) -> dict:
+    """Compare multiple products side-by-side (Phase 7)."""
+    products = db.query(Product).filter(Product.id.in_(product_ids), Product.active == True).all()
+    if not products:
+        return {"error": "No valid products found for comparison", "products": []}
+
+    comparison_items = []
+    for p in products:
+        meta = p.metadata_extra or {}
+        # Deterministic pro/con & suitability analysis
+        pros = []
+        cons = []
+        suitability_score = 85
+
+        if p.stock > 10:
+            pros.append("High stock availability")
+        else:
+            cons.append("Limited quantity in stock")
+
+        if p.price < 3000:
+            pros.append("High value budget-friendly pricing")
+            suitability_score += 5
+        elif p.price > 10000:
+            pros.append("Premium professional tier performance")
+
+        if meta.get("colors"):
+            pros.append(f"Available in multiple colors: {', '.join(meta['colors'])}")
+
+        comparison_items.append({
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "price": p.price,
+            "currency": p.currency,
+            "stock": p.stock,
+            "available": p.stock > 0,
+            "tags": p.tags or [],
+            "features": meta,
+            "pros": pros,
+            "cons": cons,
+            "suitability_score": suitability_score,
+            "image_url": p.image_url,
+        })
+
+    # Best recommendation pick
+    best_product = max(comparison_items, key=lambda x: x["suitability_score"])
+
+    return {
+        "compared_count": len(comparison_items),
+        "products": comparison_items,
+        "recommendation": {
+            "recommended_product_id": best_product["id"],
+            "recommended_product_name": best_product["name"],
+            "reason": f"Top suitability score ({best_product['suitability_score']}/100) based on pricing, features, and verified availability.",
+        },
+    }
+

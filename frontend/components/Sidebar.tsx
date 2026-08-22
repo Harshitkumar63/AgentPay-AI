@@ -3,8 +3,19 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  LayoutDashboard, ShoppingBag, Package, ClipboardList,
-  BarChart3, Bot, Shield, Settings, Zap, MessageSquare
+  LayoutDashboard,
+  ShoppingBag,
+  Package,
+  ClipboardList,
+  BarChart3,
+  Bot,
+  Shield,
+  Settings,
+  Zap,
+  Radio,
+  Sliders,
+  TrendingUp,
+  AlertTriangle,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -12,23 +23,26 @@ const NAV_SECTIONS = [
     title: "Overview",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "AI Shop", href: "/shop", icon: MessageSquare },
+      { label: "AI Shop", href: "/shop", icon: ShoppingBag },
     ],
   },
   {
-    title: "Commerce",
+    title: "Merchant Growth",
     items: [
-      { label: "Products", href: "/products", icon: Package },
+      { label: "Growth Center", href: "/growth", icon: TrendingUp },
+      { label: "Products Catalog", href: "/products", icon: Package },
       { label: "Orders", href: "/orders", icon: ClipboardList },
-      { label: "Analytics", href: "/analytics", icon: BarChart3 },
+      { label: "Revenue Analytics", href: "/analytics", icon: BarChart3 },
     ],
   },
   {
-    title: "AI & Security",
+    title: "Governance & Safety",
     items: [
-      { label: "Agent Activity", href: "/agent", icon: Bot },
+      { label: "Agent Trace", href: "/agent", icon: Bot },
       { label: "Audit Logs", href: "/audit", icon: Shield },
-      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Webhook Monitor", href: "/webhooks", icon: Radio },
+      { label: "Policy & Simulator", href: "/settings", icon: Sliders },
+      { label: "Security & Failure Lab", href: "/security", icon: AlertTriangle },
     ],
   },
 ];
@@ -39,15 +53,15 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="sidebar-logo">
+        <Link href="/dashboard" className="sidebar-logo text-decoration-none">
           <div className="sidebar-logo-icon">
             <Zap size={18} color="white" />
           </div>
           <div>
-            <h1>AgentPay AI</h1>
-            <p>Agentic Commerce</p>
+            <h1 className="text-white text-base font-bold tracking-tight">AgentPay AI</h1>
+            <p className="text-xs text-blue-400 font-medium">Agentic Commerce Engine</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       <nav className="sidebar-nav">
@@ -74,8 +88,8 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <div className="demo-badge">
-          <Zap size={14} />
-          <span>DEMO MODE</span>
+          <Zap size={14} className="animate-pulse" />
+          <span>RAZORPAY TEST MODE</span>
         </div>
       </div>
     </aside>

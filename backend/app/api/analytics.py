@@ -1,9 +1,10 @@
-"""Analytics API — revenue, product, and growth analytics."""
+"""Analytics API — revenue, product, Merchant AI Copilot, and growth center."""
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.services import analytics_service
+from app.schemas.schemas import CopilotQueryRequest, CopilotQueryResponse
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ def get_revenue(
     days: int = Query(default=30, le=365),
     db: Session = Depends(get_db),
 ):
-    """Get revenue analytics."""
+    """Get real-time aggregated revenue analytics."""
     return analytics_service.get_revenue_analytics(db, merchant_id=merchant_id, days=days)
 
 
@@ -32,5 +33,11 @@ def get_ai_analytics(
     merchant_id: str = "merchant_001",
     db: Session = Depends(get_db),
 ):
-    """Get AI growth recommendations."""
+    """Get AI growth recommendations with clear estimated vs actual distinctions."""
     return analytics_service.get_growth_recommendations(db, merchant_id=merchant_id)
+
+
+@router.post("/analytics/copilot", response_model=CopilotQueryResponse)
+def merchant_ai_copilot(req: CopilotQueryRequest, db: Session = Depends(get_db)):
+    """Merchant AI Copilot (Phase 26) grounded in store database metrics."""
+    return analytics_service.query_merchant_copilot(db, query=req.query, merchant_id=req.merchant_id)

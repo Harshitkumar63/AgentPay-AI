@@ -1,210 +1,218 @@
-# 🤖 AgentPay AI — AI-Powered Agentic Commerce Platform
+# 🤖 AgentPay AI — Autonomous Agentic Commerce & Growth Engine
 
 > **Razorpay Buildathon Track:** AI Growth & Agentic Commerce  
-> **Subtitle:** AI-Powered Agentic Commerce for Modern Merchants  
+> **Tagline:** AI-Powered Agentic Commerce & Financial Guardrails for Modern Merchants
 
 ---
 
-## 🌟 Executive Summary
+## 🌟 1. Executive Summary & Problem Statement
 
-**AgentPay AI** is a production-grade, secure, autonomous agentic commerce platform that makes modern merchants transactable by AI agents and turns natural language shopping queries into safe, policy-governed Razorpay transactions.
+### The Problem
+As autonomous AI agents, chatbots, and AI shopping assistants become the primary interface for online discovery, traditional eCommerce platforms face major challenges:
+1. **Unsafe LLM Autonomy**: Allowing generative AI to initiate purchases or touch payment gateways directly risks hallucinated orders, rogue discounts, and catastrophic financial leaks.
+2. **Opaque Pricing & Stock**: AI agents often invent product features, prices, and fake promotional codes when not grounded by strict service layers.
+3. **Missing Financial Governance**: Merchants lack granular policy limits (purchase caps, discount limits, risk classification) designed specifically for machine-initiated commerce.
 
-### Key Capabilities:
-- **AI-Readable Merchant Catalog**: Real-time product feeds and search endpoints optimized for LLM tool-calling and autonomous AI buyers.
-- **AI Shopping Assistant**: Natural language product discovery, intelligent cross-selling, upsells, cart management, and multi-step reasoning.
-- **Policy-Based Financial Guardrails**: Configurable merchant limits (max purchase amounts, discount caps, action whitelists) strictly verified in backend services.
-- **Human-in-the-Loop Financial Gating**: High-stakes financial actions require explicit user approval before payment orders are created.
-- **Full Razorpay Test-Mode Integration**: Server-to-server Razorpay Order creation, frontend Standard Checkout integration, HMAC-SHA256 signature verification, and idempotent webhook handling.
-- **Immutable Audit Trail & Governance**: Every agent tool execution, policy evaluation, user approval, and financial transaction is cryptographically tracked.
-- **Merchant Revenue & Growth Analytics**: Automated AI revenue attribution, cross-sell/upsell effectiveness tracking, and growth recommendations.
+### The Solution: AgentPay AI
+**AgentPay AI** bridges autonomous AI agents and **Razorpay's Payment Infrastructure** through a **4-Layer Defense-in-Depth Architecture**. It enables seamless natural language discovery, algorithmic upselling/cross-selling, and machine-to-machine commerce, while ensuring every financial commitment is strictly gated by merchant policies, risk classification, human approvals, and cryptographic audit trails.
 
 ---
 
-## 🏛️ System Architecture
+## 🎯 2. How AgentPay AI Solves the Razorpay Buildathon Track
 
-AgentPay AI implements a strict **4-Layer Defense-in-Depth Architecture** ensuring AI agents cannot perform unauthorized financial actions or bypass validation:
+| Buildathon Theme Requirement | How AgentPay AI Implements & Solves It |
+| :--- | :--- |
+| **AI-Powered Shopping & Discovery** | Multi-turn conversational shopping agent with tokenized catalog search, price budgets, and color memory across turns. |
+| **AI-Readable Merchant Catalog** | Dedicated machine-to-machine **AI Buyer API (`/api/agent/v1/...`)** exposing structured JSON catalog feeds & MCP tool specs. |
+| **Upselling & Cross-Selling** | Algorithmic "Frequently Bought Together" cross-sells and tiered upsell recommendations with revenue attribution. |
+| **Policy Engine & Risk Gating** | 3-tier risk engine (`LOW`, `MEDIUM`, `HIGH`) and configurable merchant policies (max amount, max discount, action whitelists). |
+| **Human-in-the-Loop Approval Gate** | High-risk financial operations pause and require interactive human confirmation before Razorpay order dispatch. |
+| **Razorpay Test Mode & Webhooks** | Server-to-server Razorpay order creation, HMAC-SHA256 signature verification, and idempotent webhook processing. |
+| **Observability & Audit Trail** | Step-by-step **Agent Execution Trace** (`/agent`) and full immutable **Audit Logs** (`/audit`). |
+| **Merchant AI Copilot & Growth** | Merchant assistant (`/growth`) analyzing revenue drop causes, stock velocity, and proposing campaign orchestrations. |
+| **Security & Failure Lab** | Interactive testing sandbox (`/security`) demonstrating purchase limit blocks, discount caps, idempotency, and gateway failure recovery. |
+
+---
+
+## 🏛️ 3. Defense-in-Depth Safety Architecture
 
 ```
+User / External AI Agent
+           │
+           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 Layer 1: AI Agent & LLM                     │
-│  (Natural Language Understanding, Intent Extraction, Tools) │
+│  Layer 1: AI Agent / AI Buyer API (Intent & Tool Selection) │
+│  (Zero Hallucination: All factual data comes from DB)        │
 └──────────────────────────────┬──────────────────────────────┘
                                │ Structured Tool Invocation
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Layer 2: Merchant Policy Engine                │
-│ (Max Order Limits, Discount Guardrails, Action Whitelists)   │
+│  Layer 2: Policy & Risk Engine (Deterministic Governance)   │
+│  (Max Purchase Caps, Discount Limits, Risk Scoring: Low/Med/High)│
 └──────────────────────────────┬──────────────────────────────┘
-                               │ Policy Evaluated (Pass / Block)
+                               │ Policy Passed + Risk Classified
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│         Layer 3: User Approval & Gating Layer               │
-│ (Explicit Confirmation Dialog, Idempotency Token Management)│
+│  Layer 3: Human Approval Gate (Mandatory for High-Risk)     │
+│  (Explicit User Confirmation, Idempotency Token Management) │
 └──────────────────────────────┬──────────────────────────────┘
-                               │ Approved
+                               │ User Confirmed
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│          Layer 4: Core Services & Razorpay API              │
-│ (Inventory Lock, Razorpay Orders, HMAC Signature Check, DB) │
-└─────────────────────────────────────────────────────────────┘
+│  Layer 4: Payment Service & Razorpay Gateway                │
+│  (Server-Side Price Recomputation, HMAC Signature, Webhook) │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                ┌──────────────┴──────────────┐
+                ▼                             ▼
+       SQLite / PostgreSQL            Immutable Audit Trail
 ```
 
+> [!IMPORTANT]
+> **Cardinal Rule:** The LLM NEVER touches Razorpay APIs directly. The LLM decides *WHAT* tool to use, but the deterministic backend enforces *WHETHER* the action is permitted.
+
 ---
 
-## 🚀 Quickstart Guide
+## 🛠️ 4. Tech Stack
+
+- **Backend:** FastAPI (Python 3.11+ / 3.14), SQLAlchemy ORM, Pydantic V2, SQLite / PostgreSQL.
+- **Frontend:** Next.js 16 (Turbopack, App Router), React 19, TypeScript, Vanilla CSS Design System, Lucide Icons.
+- **Payment Gateway:** Razorpay Standard Checkout & Orders API (Test Mode), HMAC-SHA256 Signature Verification.
+- **AI Integrations:** OpenAI Function Calling (`gpt-4o`), Google Gemini (`gemini-1.5-pro`), and Zero-Config Deterministic Demo Mode.
+- **Testing & Tooling:** Pytest, TestClient, Docker Compose.
+
+---
+
+## 🚀 5. Quickstart & Running Locally
 
 ### Prerequisites
-- Python 3.11+ / 3.12+ / 3.14
+- Python 3.11+ (or 3.12 / 3.14)
 - Node.js 18+ / 20+
-- (Optional) Docker & Docker Compose
 
----
-
-### 1. Backend Setup
-
+### Step 1: Backend Setup
 ```bash
 cd backend
 
-# Create and activate virtual environment
+# Create & activate virtual environment
 python -m venv venv
 # Windows:
 .\venv\Scripts\activate
-# Linux/macOS:
+# macOS/Linux:
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run database migrations and seed sample catalog
-python -m app.db.seed
+# Run automated tests
+pytest -v
 
-# Start FastAPI backend server
+# Start FastAPI server
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-
-Backend will be available at:
-- **API Base:** `http://127.0.0.1:8000`
-- **Swagger Docs:** `http://127.0.0.1:8000/docs`
+- **Backend API:** `http://127.0.0.1:8000`
+- **Interactive OpenAPI Docs:** `http://127.0.0.1:8000/docs`
 - **Health Check:** `http://127.0.0.1:8000/health`
 
----
-
-### 2. Frontend Setup
-
+### Step 2: Frontend Setup
 ```bash
 cd frontend
 
-# Install dependencies
+# Install packages
 npm install
 
-# Start Next.js development server
+# Build for production validation
+npm run build
+
+# Start Next.js dev server
 npm run dev
 ```
-
-Frontend will be available at `http://localhost:3000`.
+- **Web App:** `http://localhost:3000`
 
 ---
 
-### 3. Docker Compose (Full Stack)
+## 🐳 6. Running with Docker Compose
 
-To run the complete platform in isolated containers:
-
+Run the entire full-stack application with a single command:
 ```bash
 docker-compose up --build
 ```
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
 
 ---
 
-## 💳 Razorpay Test Mode & Credentials
+## 💳 7. Razorpay Test Mode Configuration
 
-To enable live Razorpay test-mode transactions:
-1. Open `backend/.env` (or set environment variables):
+To test with real Razorpay test keys:
+1. Edit `backend/.env`:
    ```env
    RAZORPAY_KEY_ID=rzp_test_YourKeyIdHere
    RAZORPAY_KEY_SECRET=YourKeySecretHere
    RAZORPAY_WEBHOOK_SECRET=YourWebhookSecretHere
+   DEMO_MODE=false
    ```
-2. In the absence of credentials, **AgentPay AI operates in Zero-Config Demo Mode**, simulating end-to-end Razorpay order creation, mock checkout, and signature verification with audit logs.
+2. If keys are omitted, the application operates in **Deterministic Zero-Config Demo Mode**, simulating all gateway handshakes, signatures, and webhooks with audit logging.
 
 ---
 
-## 🤖 AI Provider Configuration
+## 🤖 8. AI Provider Configuration
 
-AgentPay AI supports multiple AI backends via its tool-calling abstraction:
-
+AgentPay AI supports OpenAI, Google Gemini, and a built-in deterministic intent engine:
 ```env
-# Choose: openai, gemini, or leave blank for Built-in Intent Engine
+# OpenAI
 AI_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o
 
-# Or Google Gemini:
+# Or Google Gemini
 AI_PROVIDER=gemini
 GOOGLE_API_KEY=AIza...
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-1.5-pro
 ```
 
 ---
 
-## 📂 Project Structure
+## 🤖 9. AI Buyer API (v1) for Autonomous Agents
 
-```
-RAZOR PAY/
-├── backend/
-│   ├── app/
-│   │   ├── agents/           # LLM Providers, Prompts, Shopping & Growth Agents
-│   │   ├── api/              # FastAPI Routers (Products, Cart, Orders, Payments, Webhooks, etc.)
-│   │   ├── db/               # Database Engine, Session, & Seed Script
-│   │   ├── models/           # SQLAlchemy Models (Products, Carts, Orders, Payments, Audits, Policies)
-│   │   ├── schemas/          # Pydantic Schemas & Validations
-│   │   ├── services/         # Business Logic, Policy Engine, Razorpay Integration
-│   │   └── config.py         # Application Settings
-│   ├── tests/                # Automated Pytest Suite
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── app/
-│   │   ├── dashboard/        # Merchant Revenue & Growth Dashboard
-│   │   ├── shop/             # AI Conversational Commerce & Checkout
-│   │   ├── products/         # Catalog Management
-│   │   ├── orders/           # Order Tracking & Payment Status
-│   │   ├── analytics/        # Revenue Attribution & Growth Metrics
-│   │   ├── audit/            # Full Audit Trail & Security Logs
-│   │   ├── agent/            # Agent Reasoning Traces & Tool Calls
-│   │   ├── settings/         # Policy Engine Configuration
-│   │   └── globals.css       # Premium Dark-Mode Theme
-│   ├── components/           # Reusable UI & Layout Components
-│   ├── services/             # Frontend API Client
-│   ├── types/                # TypeScript Definitions
-│   └── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
+External AI agents (such as MCP agents or LangChain agents) can transact directly without using the human UI:
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/agent/v1/tools` | `GET` | Machine-readable MCP / OpenAI tool definitions. |
+| `/api/agent/v1/catalog` | `GET` | Machine-readable catalog feed formatted for LLM consumption. |
+| `/api/agent/v1/catalog/{id}` | `GET` | Factual product specifications & live stock status. |
+| `/api/agent/v1/search` | `POST` | Natural language catalog query endpoint. |
+| `/api/agent/v1/cart` | `POST` | Create or initialize an agent cart session. |
+| `/api/agent/v1/cart/{id}/items`| `POST` | Add item with server-side price validation. |
+| `/api/agent/v1/checkout` | `POST` | Execute policy-gated checkout with risk assessment. |
+| `/api/agent/v1/orders/{id}` | `GET` | Retrieve order status & receipt. |
+| `/api/agent/v1/payments/{id}`| `GET` | Query verified payment state. |
 
 ---
 
-## 🧪 Testing & Verification
+## 🧪 10. Test Suite
 
-Run the automated backend test suite:
-
+Run the full automated test suite:
 ```bash
 cd backend
-python -m pytest tests/test_all.py -v
+pytest -v
 ```
 
-All 6 automated tests verify:
-- Natural-language product discovery & tokenized search
-- Cart creation, item calculation, & subtotal tax math
-- Policy guardrails (order limit rejection, discount gating)
-- Order creation pipeline with automated audit logging
-- Razorpay payment creation and signature verification
-- Cross-sell and upsell recommendation engine
+### Test Coverage Summary:
+- `test_product_search_and_filters`: Tokenized search, color matching, price budgets.
+- `test_inventory_check_insufficient`: Stock exhaustion checks prevent overselling.
+- `test_cart_operations_and_calculations`: Subtotal, quantity, and server-side pricing recalculation.
+- `test_policy_engine_limits_and_discounts`: Transaction value caps and discount percentage limits.
+- `test_idempotency_order_creation`: Same idempotency key returns existing order without duplicates.
+- `test_duplicate_webhook_protection`: Replay attacks on webhook event IDs safely ignored.
+- `test_payment_failure_handling`: Gateway declines recorded safely with audit trails.
+- `test_product_comparison`: Side-by-side feature, pro/con, and suitability scoring.
+- `test_ai_buyer_api_endpoints`: End-to-end machine-to-machine commerce API.
+- `test_merchant_ai_copilot`: Analytics-grounded copilot Q&A.
+- `test_policy_simulator_endpoint`: Real-time compliance simulator.
 
 ---
 
-## 🛡️ Security & Reliability Architecture
+## 📄 11. Buildathon Live Demo Script
 
-1. **Backend-Only Secrets**: Razorpay Key Secret and Webhook Secret are never exposed to client browsers or AI prompts.
-2. **Deterministic Financial Logic**: Pricing math, discounts, tax calculations, and policy validations are performed purely in deterministic backend code, never in LLM prompts.
-3. **Idempotent Webhooks & Orders**: Webhook events and order creations utilize unique idempotency keys to prevent duplicate captures.
-4. **Audit Immutability**: All sensitive operations are logged with timestamps, actor IDs, policy results, and metadata.
+Follow our 3-5 minute live demonstration walkthrough in [`DEMO.md`](file:///c:/Users/harsh/Desktop/RAZOR%20PAY/DEMO.md).

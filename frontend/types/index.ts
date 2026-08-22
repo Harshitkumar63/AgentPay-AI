@@ -13,10 +13,10 @@ export interface Product {
   active: boolean;
   image_url: string;
   tags: string[];
-  metadata_extra: Record<string, unknown>;
+  metadata_extra: Record<string, any>;
   available?: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CartItem {
@@ -50,9 +50,10 @@ export interface Order {
   status: string;
   payment_status: string;
   receipt: string | null;
+  idempotency_key?: string | null;
   order_type: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface Payment {
@@ -81,7 +82,20 @@ export interface AuditLog {
   policy_result: string | null;
   approval_status: string | null;
   result: string | null;
-  metadata_extra: Record<string, unknown>;
+  metadata_extra: Record<string, any>;
+  created_at: string;
+}
+
+export interface WebhookEvent {
+  id: string;
+  event_id: string | null;
+  event_type: string;
+  order_id: string | null;
+  payment_id: string | null;
+  status: string;
+  payload_summary?: Record<string, any>;
+  error_message: string | null;
+  retry_count: number;
   created_at: string;
 }
 
@@ -90,8 +104,8 @@ export interface AgentAction {
   session_id: string;
   action: string;
   tool_name: string;
-  input_data: Record<string, unknown>;
-  output_data: Record<string, unknown>;
+  input_data: Record<string, any>;
+  output_data: Record<string, any>;
   status: string;
   error_message: string | null;
   duration_ms: number | null;
@@ -106,8 +120,29 @@ export interface Policy {
   approval_required: boolean;
   auto_refund_enabled: boolean;
   allowed_actions: string[];
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PolicyCheckResult {
+  allowed: boolean;
+  policy_id?: string;
+  risk_level: string;
+  risk_score: number;
+  requires_approval: boolean;
+  reason: string;
+  details: Record<string, any>;
+}
+
+export interface PolicySimulation {
+  simulation: boolean;
+  input: {
+    merchant_id: string;
+    amount: number;
+    discount_percentage: number;
+    action: string;
+  };
+  decision: PolicyCheckResult;
 }
 
 export interface RevenueAnalytics {
@@ -119,6 +154,8 @@ export interface RevenueAnalytics {
   ai_assisted_revenue: number;
   upsell_revenue: number;
   cross_sell_revenue: number;
+  failed_payments_count?: number;
+  blocked_actions_count?: number;
   period: string;
 }
 
@@ -135,7 +172,7 @@ export interface GrowthRecommendation {
 export interface AgentStep {
   step: number;
   tool: string;
-  input: Record<string, unknown>;
+  input: Record<string, any>;
   output_summary: string;
   status: string;
 }
@@ -151,11 +188,16 @@ export interface ChatResponse {
   confirmation_data: {
     type: string;
     order: Order;
-    policy: { allowed: boolean; reason: string; requires_approval: boolean };
+    policy: PolicyCheckResult | Record<string, any>;
     amount: number;
     message: string;
   } | null;
   agent_steps: AgentStep[];
+  explanation?: {
+    title: string;
+    decision: string;
+    factors: string[];
+  } | null;
   demo_mode: boolean;
 }
 
@@ -168,4 +210,22 @@ export interface PaymentData {
   currency: string;
   receipt: string;
   demo: boolean;
+}
+
+export interface CopilotResponse {
+  answer: string;
+  metrics_used: Record<string, any>;
+  suggested_actions: string[];
+  proposed_campaign?: {
+    id: string;
+    title: string;
+    product_id: string;
+    product_name: string;
+    discount_percentage: number;
+    budget: number;
+    duration_days: number;
+    estimated_opportunity: number;
+    risk_level: string;
+    status: string;
+  } | null;
 }

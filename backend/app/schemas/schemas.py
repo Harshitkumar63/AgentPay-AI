@@ -383,3 +383,95 @@ class ErrorDetails(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetails
+
+
+# ── Budget, Trust & Approvals ─────────────────────────────
+
+class AgentBudgetRead(BaseModel):
+    id: str
+    agent_id: str
+    merchant_id: str
+    daily_limit: float
+    per_transaction_limit: float
+    spent_today: float
+    remaining_daily_budget: float
+    model_config = ConfigDict(from_attributes=True)
+
+class AgentBudgetUpdate(BaseModel):
+    daily_limit: Optional[float] = None
+    per_transaction_limit: Optional[float] = None
+
+class AgentTrustRead(BaseModel):
+    id: str
+    agent_id: str
+    trust_score: int
+    successful_transactions: int
+    failed_payments: int
+    policy_violations: int
+    duplicate_requests: int
+    approval_rate: float
+    risk_tier: str
+    model_config = ConfigDict(from_attributes=True)
+
+class ApprovalCreate(BaseModel):
+    agent_session_id: Optional[str] = None
+    order_id: Optional[str] = None
+    merchant_id: str = "merchant_001"
+    user_id: str = "demo_user"
+    action: str = "create_order"
+    amount: float
+    currency: str = "INR"
+    reason: str = "High-risk financial action requires human authorization"
+
+class ApprovalRead(BaseModel):
+    id: str
+    agent_session_id: Optional[str] = None
+    order_id: Optional[str] = None
+    merchant_id: str
+    user_id: str
+    action: str
+    amount: float
+    currency: str
+    risk_level: str
+    risk_score: int
+    policy_result: dict
+    reason: str
+    status: str  # PENDING, APPROVED, REJECTED, EXPIRED
+    decision_reason: Optional[str] = None
+    approved_by: Optional[str] = None
+    created_at: datetime
+    expires_at: datetime
+    decided_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ApprovalDecisionRequest(BaseModel):
+    status: str  # APPROVED or REJECTED
+    approved_by: str = "merchant_admin"
+    reason: Optional[str] = None
+
+class DecisionReplayResponse(BaseModel):
+    order_id: str
+    session_id: Optional[str] = None
+    user_request: Optional[str] = None
+    stages: List[dict] = []
+    policy_check: Optional[dict] = None
+    risk_assessment: Optional[dict] = None
+    budget_check: Optional[dict] = None
+    trust_check: Optional[dict] = None
+    approval_record: Optional[dict] = None
+    payment_status: Optional[dict] = None
+    audit_logs: List[dict] = []
+
+class MCPCallRequest(BaseModel):
+    tool_name: str
+    arguments: dict = {}
+    session_id: Optional[str] = None
+    user_id: str = "mcp_agent"
+    merchant_id: str = "merchant_001"
+
+class MCPCallResponse(BaseModel):
+    tool_name: str
+    result: Any
+    duration_ms: int
+    status: str
+

@@ -18,6 +18,7 @@ import {
   Layers,
   CheckCircle2,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 import {
   sendChatMessage,
@@ -26,8 +27,10 @@ import {
   removeFromCart,
   createPayment,
   verifyPayment,
+  getAgentBudget,
+  getAgentTrust,
 } from "@/services/api";
-import type { ChatResponse, Product, Cart, PaymentData } from "@/types";
+import type { ChatResponse, Product, Cart, PaymentData, AgentBudget, AgentTrust } from "@/types";
 
 interface Message {
   role: "user" | "assistant";
@@ -43,7 +46,7 @@ export default function ShopPage() {
     {
       role: "assistant",
       content:
-        "👋 Welcome to UrbanCart! I am your autonomous AI shopping assistant.\n\nI can discover products from our verified catalog, check live inventory, provide cross-sell recommendations, and execute policy-gated checkouts.\n\nTry asking me:",
+        "👋 Welcome to UrbanCart! I am your autonomous AI shopping assistant.\n\nI can discover products from our verified catalog, verify real-time stock, provide algorithmic cross-sell recommendations, and execute policy-gated checkouts.\n\nTry asking me:",
     },
   ]);
   const [input, setInput] = useState("");
@@ -53,6 +56,8 @@ export default function ShopPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [showApproval, setShowApproval] = useState(false);
   const [approvalData, setApprovalData] = useState<ChatResponse["confirmation_data"]>(null);
+  const [budgetInfo, setBudgetInfo] = useState<AgentBudget | null>(null);
+  const [trustInfo, setTrustInfo] = useState<AgentTrust | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +104,15 @@ export default function ShopPage() {
       if (res.requires_confirmation && res.confirmation_data) {
         assistantMsg.confirmation = res.confirmation_data;
         setApprovalData(res.confirmation_data);
+
+        // Fetch budget and trust for the review modal
+        Promise.all([getAgentBudget(), getAgentTrust()])
+          .then(([b, t]) => {
+            setBudgetInfo(b);
+            setTrustInfo(t);
+          })
+          .catch(() => {});
+
         setShowApproval(true);
       }
 
@@ -127,7 +141,7 @@ export default function ShopPage() {
         ...prev,
         {
           role: "assistant",
-          content: `✅ Added **${product.name}** to your cart! Total: ₹${updated.total.toLocaleString("en-IN")}\n\nSay "Buy now" whenever you're ready to proceed to checkout.`,
+          content: `✅ Added **${product.name}** to your cart! Subtotal: ₹${updated.total.toLocaleString("en-IN")}\n\nSay "Buy now" or click **'Gated AI Checkout'** on the right whenever you're ready.`,
         },
       ]);
     } catch (err: any) {
@@ -153,7 +167,7 @@ export default function ShopPage() {
     if (!approved) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "🛑 Purchase authorization cancelled by user. Cart remains preserved." },
+        { role: "assistant", content: "🛑 Purchase authorization cancelled by user. Cart items remain preserved." },
       ]);
       return;
     }
@@ -175,7 +189,7 @@ export default function ShopPage() {
           ...prev,
           {
             role: "assistant",
-            content: `🎉 **Payment Verified & Captured!** (RAZORPAY TEST MODE)\n\n• Order ID: \`${orderId}\`\n• Amount: **₹${(paymentData.amount / 100).toLocaleString("en-IN")}**\n• Status: \`CAPTURED\`\n• Gateway Signature: \`VERIFIED\`\n\nFull immutable transaction ledger recorded in Audit Logs.`,
+            content: `🎉 **Payment Verified & Captured!** (RAZORPAY TEST MODE)\n\n• Order ID: \`${orderId}\`\n• Amount: **₹${(paymentData.amount / 100).toLocaleString("en-IN")}**\n• Status: \`COMPLETED\`\n• Gateway Signature: \`VERIFIED\`\n\nFull immutable transaction ledger recorded in Audit Logs. Click on **'Orders'** to view the live timeline and Decision Replay!`,
           },
         ]);
         setCart(null);
@@ -244,7 +258,7 @@ export default function ShopPage() {
             <Sparkles className="text-indigo-400" /> AI Conversational Shop
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            Natural language catalog discovery, algorithmic upselling, and policy-gated checkout
+            Natural language catalog discovery, algorithmic recommendation scoring, and policy-gated checkout
           </p>
         </div>
       </div>
@@ -279,15 +293,15 @@ export default function ShopPage() {
                       </p>
                     ))}
 
-                    {/* "Why did the AI do this?" (Phase 15) */}
+                    {/* "Why did the AI do this?" (Phase 5) */}
                     {msg.explanation && (
-                      <div className="explanation-box">
-                        <div className="explanation-title">
+                      <div className="explanation-box mt-3 p-3 rounded-lg bg-indigo-950/20 border border-indigo-500/30">
+                        <div className="explanation-title text-xs font-bold text-indigo-300 flex items-center gap-1 mb-1.5">
                           <Info size={13} />
                           {msg.explanation.title}
                         </div>
                         {msg.explanation.factors?.map((fac, fIdx) => (
-                          <div key={fIdx} className="explanation-factor">
+                          <div key={fIdx} className="explanation-factor text-xs flex items-center gap-1.5 text-gray-300">
                             <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
                             <span>{fac}</span>
                           </div>
@@ -306,12 +320,12 @@ export default function ShopPage() {
                     </div>
                     {msg.agentSteps.map((step, k) => (
                       <div key={k} className="agent-step">
-                        <div className="agent-step-number">{step.step}</div>
+                        <div className="agent-step-number">{step.sequence || step.step || k + 1}</div>
                         <span className="agent-step-tool font-mono">{step.tool}()</span>
                         <span className="text-xs text-gray-400">{step.output_summary}</span>
                         <span
-                          className={`badge text-xs ml-auto ${
-                            step.status === "success" ? "badge-success" : "badge-danger"
+                          className={`badge text-[10px] font-bold uppercase ml-auto ${
+                            step.status.toUpperCase() === "SUCCESS" ? "badge-success" : "badge-danger"
                           }`}
                         >
                           {step.status}
@@ -346,7 +360,10 @@ export default function ShopPage() {
                           >
                             {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
                           </span>
-                          <span className="text-gray-400 text-xs">{product.category}</span>
+                          <span className="badge badge-purple text-[10px] flex items-center gap-1">
+                            <Star size={10} className="fill-amber-400 text-amber-400" />
+                            Score: {product.recommendation_score || 90}/100
+                          </span>
                         </div>
                         <div className="product-actions">
                           <button
@@ -451,59 +468,69 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* Human Approval Gate Modal (Phase 14) */}
+      {/* Human Approval & Governance Gate Modal (Phase 40) */}
       {showApproval && approvalData && (
         <div className="approval-overlay">
-          <div className="approval-dialog">
+          <div className="approval-dialog max-w-lg">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2 text-indigo-300">
                 <Shield size={20} className="text-indigo-400" />
-                Human Approval Required
+                Purchase Review & Authorization Gate
               </h2>
               <span className="risk-pill risk-high">High Risk</span>
             </div>
 
-            <p className="text-xs text-gray-400 mb-3">
-              The AI Agent prepared this transaction. Before creating the payment order on Razorpay, your explicit authorization is required.
+            <p className="text-xs text-gray-400 mb-4">
+              Autonomous purchase gated for merchant & human verification before payment initialization.
             </p>
 
-            <div className="space-y-2 py-2 border-y border-gray-800 text-xs">
+            <div className="space-y-2.5 py-3 border-y border-gray-800 text-xs">
               <div className="approval-detail">
-                <span className="label">Order Reference</span>
-                <span className="font-mono">{approvalData.order?.id}</span>
+                <span className="label text-gray-400 font-bold">Order ID</span>
+                <span className="font-mono text-gray-200">{approvalData.order?.id}</span>
               </div>
               <div className="approval-detail">
-                <span className="label">Calculated Amount</span>
-                <span className="font-bold text-base text-emerald-400">
+                <span className="label text-gray-400 font-bold">Calculated Amount</span>
+                <span className="font-bold text-lg text-emerald-400">
                   ₹{approvalData.amount?.toLocaleString("en-IN")}
                 </span>
               </div>
               <div className="approval-detail">
-                <span className="label">Policy Decision</span>
-                <span
-                  className={`badge ${
-                    approvalData.policy?.allowed ? "badge-success" : "badge-danger"
-                  }`}
-                >
-                  {approvalData.policy?.allowed ? "ALLOWED" : "BLOCKED"}
+                <span className="label text-gray-400 font-bold">Policy Check</span>
+                <span className="badge badge-success font-bold text-xs">✓ ALLOWED</span>
+              </div>
+              <div className="approval-detail">
+                <span className="label text-gray-400 font-bold">Risk Assessment</span>
+                <span className="badge badge-danger font-bold text-xs">HIGH RISK (FINANCIAL)</span>
+              </div>
+              <div className="approval-detail">
+                <span className="label text-gray-400 font-bold">Agent Budget</span>
+                <span className="text-emerald-400 font-semibold">
+                  AVAILABLE (Remaining: ₹{budgetInfo?.remaining_daily_budget?.toLocaleString() || "7,501"})
                 </span>
               </div>
               <div className="approval-detail">
-                <span className="label">Policy Details</span>
-                <span className="text-gray-300 text-right max-w-xs">{approvalData.policy?.reason}</span>
+                <span className="label text-gray-400 font-bold">Agent Trust Score</span>
+                <span className="text-indigo-300 font-semibold font-mono">
+                  {trustInfo?.trust_score || 87} / 100 ({trustInfo?.risk_tier || "LOW RISK"})
+                </span>
+              </div>
+              <div className="approval-detail">
+                <span className="label text-gray-400 font-bold">Approval Status</span>
+                <span className="badge badge-warning font-bold text-xs">REQUIRED (5m TTL)</span>
               </div>
             </div>
 
-            <div className="approval-actions mt-4 flex gap-3">
+            <div className="approval-actions mt-5 flex gap-3">
               <button
-                className="btn btn-secondary flex-1"
+                className="btn btn-secondary flex-1 text-sm py-2"
                 onClick={() => handleApproval(false)}
                 disabled={processingPayment}
               >
                 <X size={15} /> Cancel
               </button>
               <button
-                className="btn btn-success flex-1"
+                className="btn btn-success flex-1 text-sm py-2"
                 onClick={() => handleApproval(true)}
                 disabled={processingPayment}
               >

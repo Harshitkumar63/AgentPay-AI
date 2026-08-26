@@ -10,20 +10,22 @@ import {
   BarChart3,
   Bot,
   Shield,
-  Settings,
   Zap,
   Radio,
   Sliders,
   TrendingUp,
   AlertTriangle,
+  Cpu,
+  Settings as SettingsIcon,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
   {
-    title: "Overview",
+    title: "AI Commerce",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "AI Shop", href: "/shop", icon: ShoppingBag },
+      { label: "AI Buyer Simulator", href: "/ai-buyer", icon: Cpu },
     ],
   },
   {
@@ -31,18 +33,19 @@ const NAV_SECTIONS = [
     items: [
       { label: "Growth Center", href: "/growth", icon: TrendingUp },
       { label: "Products Catalog", href: "/products", icon: Package },
-      { label: "Orders", href: "/orders", icon: ClipboardList },
+      { label: "Orders & Timeline", href: "/orders", icon: ClipboardList },
       { label: "Revenue Analytics", href: "/analytics", icon: BarChart3 },
     ],
   },
   {
-    title: "Governance & Safety",
+    title: "Governance & Security",
     items: [
       { label: "Agent Trace", href: "/agent", icon: Bot },
       { label: "Audit Logs", href: "/audit", icon: Shield },
       { label: "Webhook Monitor", href: "/webhooks", icon: Radio },
-      { label: "Policy & Simulator", href: "/settings", icon: Sliders },
+      { label: "Policy Simulator", href: "/policies/simulator", icon: Sliders },
       { label: "Security & Failure Lab", href: "/security", icon: AlertTriangle },
+      { label: "Settings", href: "/settings", icon: SettingsIcon },
     ],
   },
 ];
@@ -59,7 +62,7 @@ export default function Sidebar() {
           </div>
           <div>
             <h1 className="text-white text-base font-bold tracking-tight">AgentPay AI</h1>
-            <p className="text-xs text-blue-400 font-medium">Agentic Commerce Engine</p>
+            <p className="text-xs text-blue-400 font-medium">Agentic Commerce Platform</p>
           </div>
         </Link>
       </div>
@@ -70,7 +73,7 @@ export default function Sidebar() {
             <div className="nav-section-title">{section.title}</div>
             {section.items.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+              const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
               return (
                 <Link
                   key={item.href}

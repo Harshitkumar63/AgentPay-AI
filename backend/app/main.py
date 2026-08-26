@@ -82,7 +82,22 @@ async def health():
 
 
 # Import and register routers
-from app.api import products, cart, orders, payments, analytics, agent, policies, audit, webhooks, buyer_api
+from app.api import (
+    products,
+    cart,
+    orders,
+    payments,
+    analytics,
+    agent,
+    policies,
+    audit,
+    webhooks,
+    buyer_api,
+    approvals,
+    budget_trust,
+    campaigns,
+    mcp_api,
+)
 
 app.include_router(products.router, prefix="/api", tags=["Products"])
 app.include_router(cart.router, prefix="/api", tags=["Cart"])
@@ -94,4 +109,9 @@ app.include_router(policies.router, prefix="/api", tags=["Policies"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(buyer_api.router, prefix="/api", tags=["AI Buyer API (v1)"])
+app.include_router(approvals.router, prefix="/api", tags=["Human Approvals"])
+app.include_router(budget_trust.router, prefix="/api", tags=["Agent Budget & Trust"])
+app.include_router(campaigns.router, prefix="/api", tags=["AI Campaign Builder"])
+app.include_router(mcp_api.router, prefix="/api", tags=["Model Context Protocol (MCP)"])
+
 

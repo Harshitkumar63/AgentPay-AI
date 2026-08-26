@@ -1,92 +1,89 @@
-# 🎬 AgentPay AI — Buildathon Judging & Demo Guide (3-5 Minutes)
+# AgentPay AI — Live Demonstration Script (3-5 Minutes)
 
-> **Track:** AI Growth & Agentic Commerce  
-> **Platform:** AgentPay AI — AI-Powered Agentic Commerce Engine for Modern Merchants
-
----
-
-## 🎯 Demo Goal
-Demonstrate how **AgentPay AI** transforms a traditional catalog into an **AI-transactable storefront** while maintaining strict **financial guardrails**, **risk gating**, **human-in-the-loop approvals**, and **seamless Razorpay checkout**.
+This script provides a structured, high-impact demonstration of the **AgentPay AI** platform.
 
 ---
 
-## ⏱️ Step-by-Step Presentation Script
+## ⏱️ Timeline Overview
 
-### 1. Merchant Dashboard Overview (30 Seconds)
-- **Navigate to:** `http://localhost:3000/dashboard`
-- **Key Points to Highlight:**
-  - Real-time aggregated store performance: **Total Revenue**, **Orders**, **Average Order Value (AOV)**, and **AI-Assisted Revenue**.
-  - Conservative revenue attribution separating direct purchases from AI-assisted conversions.
-  - Active payment health indicator showing Razorpay Test Mode.
-
----
-
-### 2. Natural Language Product Discovery & Algorithmic Upselling (60 Seconds)
-- **Navigate to:** `http://localhost:3000/shop`
-- **Action:**
-  - Click the quick prompt pill: `"Find black running shoes under ₹3000"` or type it in the chat box.
-- **What to Highlight:**
-  - **Zero Hallucination Guarantee:** The agent executes `search_products(query="running shoes", color="black", max_price=3000)` against the SQLite database.
-  - Notice the **"Why did the AI do this?"** decision explanation widget showing verified budget fit, category match, and live inventory status.
-  - Notice the cross-sell recommendation: *"Performance Running Socks (3-Pack)"* dynamically suggested.
-  - Click **Add to Cart** on `ProRunner X1 Running Shoes`.
+| Timestamp | Section | Key Feature Demonstrated |
+|-----------|---------|--------------------------|
+| **0:00 - 0:45** | **1. The Problem & Vision** | Autonomous Agentic Commerce & Governance Challenge |
+| **0:45 - 1:45** | **2. AI Conversational Shop** | Catalog Search, Recommendation Scoring, Human Approval Gate |
+| **1:45 - 2:30** | **3. AI Buyer Simulator** | 12-Step Machine-to-Machine Autonomous Commerce via REST/MCP |
+| **2:30 - 3:15** | **4. Governance & Security Lab** | 10 Controlled Security Tests & Policy Simulator |
+| **3:15 - 4:15** | **5. Growth Center & Copilot** | Upsell/Cross-sell Analytics & Merchant AI Copilot |
+| **4:15 - 5:00** | **6. Decision Replay & Audit** | 100% Data-Backed Autonomous Journey Reconstruction |
 
 ---
 
-### 3. Gated Checkout & Human-in-the-Loop Approval Gate (60 Seconds)
-- **Action:**
-  - Type or click: `"Buy now"` or click **Gated AI Checkout** in the cart sidebar.
-- **What Happens Behind the Scenes:**
-  1. Re-verifies live inventory from the database.
-  2. Server-side price recalculation (never trusts frontend client amounts).
-  3. **Policy Engine Check:** Compares amount against merchant maximum limit (₹50,000) and discount cap (20%).
-  4. **Risk Engine Assessment:** Classifies the order as `HIGH RISK` because it commits financial funds.
-- **What Appears on Screen:**
-  - The **Human Approval Gate Modal** pops up with calculated totals, policy decision (`ALLOWED`), and risk classification (`HIGH RISK`).
-- **Action:**
-  - Click **"Confirm Purchase"**.
-  - Notice the instantaneous transition to Razorpay Test Mode checkout, verification of cryptographic signature, and immediate order fulfillment.
+## 🎬 Step-by-Step Presentation Guide
+
+### 1. The Problem & Vision (0:00 - 0:45)
+- **Goal**: Introduce how AI shopping agents are changing e-commerce, and why merchants need deterministic safety.
+- **Talking Point**:
+  > *"As autonomous AI agents begin shopping on behalf of users, merchants need more than just a chatbot — they need a secure, policy-gated infrastructure that prevents rogue spending, protects margins, ensures human authorization, and integrates directly with Razorpay."*
 
 ---
 
-### 4. Agent Execution Trace & Immutable Audit Trail (45 Seconds)
-- **Navigate to:** `http://localhost:3000/agent`
-  - Show the step-by-step tool execution pipeline: `search_products()` → `add_to_cart()` → `create_order()` → `get_payment_status()`.
-  - Expand any step to inspect the exact input arguments, execution duration in milliseconds, and structured JSON output.
-- **Navigate to:** `http://localhost:3000/audit`
-  - Show the cryptographic audit log entry for the purchase: Actor (`ai_agent`), Action (`CREATE_ORDER`), Policy Result (`ALLOWED`), Approval Status (`APPROVED`), Result (`SUCCESS`).
+### 2. AI Conversational Shop & Human Approval Gate (0:45 - 1:45)
+- **Navigate to**: `/shop`
+- **Action**:
+  1. Click quick prompt: `Find black running shoes under ₹3000`.
+  2. Notice the instant catalog extraction, inventory badge, and **Score: 95/100** recommendation badge.
+  3. Click **"Add to Cart"** on *ProRunner X1 Running Shoes*.
+  4. Click **"Gated AI Checkout"** in the live cart sidebar.
+  5. The **Human Approval & Governance Review Modal** appears:
+     - Policy Check: `ALLOWED`
+     - Risk Assessment: `HIGH RISK (FINANCIAL)`
+     - Agent Budget: `AVAILABLE`
+     - Agent Trust Score: `87/100`
+     - Approval: `REQUIRED (5-minute TTL)`
+  6. Click **"Confirm Purchase"** to trigger Razorpay Test Mode verification and complete checkout.
 
 ---
 
-### 5. Webhook Event Monitor & Idempotency Proof (45 Seconds)
-- **Navigate to:** `http://localhost:3000/webhooks`
-  - Show the live gateway webhook events log (`payment.captured`, `payment.authorized`).
-  - **Live Demonstration:** Click **"Simulate payment.captured"** button.
-  - Click it a second time with the same event: Notice the status changes to `Idempotent Ignored` (`already_processed`), proving that network retries and replay attacks cannot cause double charges.
+### 3. AI Buyer Simulator (1:45 - 2:30)
+- **Navigate to**: `/ai-buyer`
+- **Action**:
+  1. Show the goal: `Buy a SwiftBook laptop under ₹50000`.
+  2. Click **"Run Autonomous Agent Simulation"**.
+  3. Watch the live 12-step machine-to-machine pipeline execute in real time:
+     - Discover MCP Tools → Search Catalog → Compare Products → Check Live Stock → Initialize Cart → Recalculate Pricing Server-Side → Policy Engine → Risk Engine → Budget & Trust → Human Gate → Order Creation.
+  4. Inspect the live JSON responses in the inspector.
 
 ---
 
-### 6. Security & Failure Demonstration Lab (45 Seconds)
-- **Navigate to:** `http://localhost:3000/security`
-  - Click **"Run Test"** on **Scenario 1 (Purchase Limit Breach)**:
-    - AI attempts a ₹75,000 transaction exceeding the ₹50,000 policy limit → **BLOCKED** with audit logging.
-  - Click **"Run Test"** on **Scenario 2 (Excessive Discount Injection)**:
-    - Attempting a 40% discount override → **BLOCKED** by policy cap.
-  - Click **"Run Test"** on **Scenario 5 (Gateway Payment Failure Recovery)**:
-    - Simulates payment decline → safely logged as `PAYMENT_FAILED` without corrupting order state.
+### 4. Security & Failure Demonstration Lab (2:30 - 3:15)
+- **Navigate to**: `/security`
+- **Action**:
+  1. Point out the **10 controlled scenarios** protecting the platform against rogue agents, margin drain, and gateway dropouts.
+  2. Click **"Execute All 10 Scenarios"** or run **"Purchase Limit Breach"** and **"Duplicate Webhook Replay Attack"**.
+  3. Show the real-time breakdown of `INPUT` → `VALIDATION` → `POLICY` → `RISK` → `AUDIT`.
+- **Navigate to**: `/policies/simulator`
+- **Action**:
+  1. Enter ₹7,500 and 10% discount.
+  2. Click **"Run Policy Simulation"** to display real-time deterministic policy evaluation.
 
 ---
 
-### 7. AI Growth Center & Merchant AI Copilot (30 Seconds)
-- **Navigate to:** `http://localhost:3000/growth`
-  - Show the clear distinction between **Actual Captured Revenue** vs. **Estimated Growth Opportunity**.
-  - In the **Merchant AI Copilot**, click: `"Why did revenue change this month?"` or `"What products should I promote?"`.
-  - Copilot responds with database-grounded insights and generates an **AI Campaign Proposal** with explicit merchant approval gating.
+### 5. Merchant Growth Center & AI Copilot (3:15 - 4:15)
+- **Navigate to**: `/growth`
+- **Action**:
+  1. Point out the clear distinction between **Actual Captured Revenue** and **Estimated Growth Opportunity**.
+  2. Showcase the **AI Recommendation & Conversion Telemetry** (Impressions, Clicks, Purchases, CTR, and Conversion Rates).
+  3. Ask the **Merchant AI Copilot**: *"Why did revenue change this month?"*
+  4. Review the dynamic answer, suggested actions, and the **AI Campaign Proposal**.
+  5. Click **"Approve & Activate"** on the campaign proposal.
 
 ---
 
-## 🏆 Key Takeaways for Judges
-1. **Safety First:** The LLM NEVER has direct access to Razorpay APIs or raw payment execution.
-2. **Zero Hallucinations:** All pricing, stock, and recommendations are anchored in backend services.
-3. **Idempotency & Integrity:** Replay attacks, duplicate orders, and gateway failures are handled safely and logged immutably.
-4. **Machine-to-Machine Ready:** External autonomous AI agents can discover and purchase via `/api/agent/v1/...` AI Buyer API.
+### 6. Order Timeline & Decision Replay (4:15 - 5:00)
+- **Navigate to**: `/orders`
+- **Action**:
+  1. Click on the most recent completed order.
+  2. View the step-by-step state machine timeline with real timestamps and actors.
+  3. Click **"View Decision Replay"**.
+  4. Walk through the reconstructed autonomous journey from user prompt down to Razorpay signature verification and audit trail.
+- **Closing Statement**:
+  > *"AgentPay AI turns AI commerce from a speculative risk into a governed, revenue-generating reality for modern merchants."*

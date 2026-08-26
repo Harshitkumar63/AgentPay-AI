@@ -14,25 +14,34 @@ import {
   ShieldCheck,
   AlertCircle,
   HelpCircle,
+  BarChart2,
+  Percent,
+  PlusCircle,
 } from "lucide-react";
 import {
   getGrowthRecommendations,
   getRevenueAnalytics,
+  getRecommendationAnalytics,
   queryMerchantCopilot,
+  activateCampaign,
 } from "@/services/api";
-import { GrowthRecommendation, RevenueAnalytics, CopilotResponse } from "@/types";
+import {
+  GrowthRecommendation,
+  RevenueAnalytics,
+  RecommendationAnalytics,
+  CopilotResponse,
+} from "@/types";
 
 export default function GrowthCenterPage() {
   const [recommendations, setRecommendations] = useState<GrowthRecommendation[]>([]);
   const [revenue, setRevenue] = useState<RevenueAnalytics | null>(null);
+  const [recAnalytics, setRecAnalytics] = useState<RecommendationAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Copilot state
   const [query, setQuery] = useState("");
   const [copilotLoading, setCopilotLoading] = useState(false);
-  const [copilotHistory, setCopilotHistory] = useState<
-    { q: string; response: CopilotResponse }[]
-  >([]);
+  const [copilotHistory, setCopilotHistory] = useState<{ q: string; response: CopilotResponse }[]>([]);
 
   // Selected Campaign State
   const [approvedCampaigns, setApprovedCampaigns] = useState<Record<string, boolean>>({});
@@ -40,12 +49,14 @@ export default function GrowthCenterPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [recsData, revData] = await Promise.all([
+        const [recsData, revData, recStats] = await Promise.all([
           getGrowthRecommendations("merchant_001"),
           getRevenueAnalytics("merchant_001", 30),
+          getRecommendationAnalytics("merchant_001").catch(() => null),
         ]);
         setRecommendations(recsData);
         setRevenue(revData);
+        setRecAnalytics(recStats);
       } catch (err) {
         console.error("Failed to load growth data", err);
       } finally {
@@ -73,6 +84,15 @@ export default function GrowthCenterPage() {
     }
   };
 
+  const handleApproveCampaign = async (campaignId: string) => {
+    try {
+      await activateCampaign(campaignId, "merchant_admin");
+      setApprovedCampaigns((prev) => ({ ...prev, [campaignId]: true }));
+    } catch (e: any) {
+      alert("Campaign activation error: " + e.message);
+    }
+  };
+
   const askPreset = (preset: string) => {
     setQuery(preset);
   };
@@ -92,18 +112,18 @@ export default function GrowthCenterPage() {
               AI Growth Center
             </h1>
             <p className="text-sm text-gray-400 mt-1">
-              Autonomous catalog intelligence, cross-sell optimization, and Merchant AI Copilot
+              Autonomous catalog intelligence, cross-sell & upsell telemetry, and Merchant AI Copilot
             </p>
           </div>
           <div className="badge badge-purple flex items-center gap-1">
             <Sparkles size={13} />
-            <span>AI Driven Insights</span>
+            <span>AI Revenue Optimization</span>
           </div>
         </div>
       </div>
 
-      {/* Actual vs Estimated Distinction Banner (Phase 23) */}
-      <div className="stats-grid">
+      {/* Actual vs Estimated Distinction Banner */}
+      <div className="stats-grid mb-6">
         <div className="stat-card">
           <div className="stat-card-header">
             <span className="stat-card-label">Actual Captured Revenue</span>
@@ -127,7 +147,20 @@ export default function GrowthCenterPage() {
           <div className="stat-card-value text-indigo-400">
             ₹{revenue?.ai_assisted_revenue?.toLocaleString() || "0"}
           </div>
-          <p className="stat-card-sub text-xs">Orders influenced by AI recommendations</p>
+          <p className="stat-card-sub text-xs">Verified AI-attributed orders</p>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-header">
+            <span className="stat-card-label">Upsell & Cross-Sell Revenue</span>
+            <div className="stat-card-icon bg-blue-500/10 text-blue-400">
+              <ShoppingCart size={18} />
+            </div>
+          </div>
+          <div className="stat-card-value text-blue-400">
+            ₹{((revenue?.upsell_revenue || 0) + (revenue?.cross_sell_revenue || 0)).toLocaleString()}
+          </div>
+          <p className="stat-card-sub text-xs">Attach & tier upgrade volume</p>
         </div>
 
         <div className="stat-card">
@@ -140,13 +173,104 @@ export default function GrowthCenterPage() {
           <div className="stat-card-value text-amber-400">
             ₹{totalEstimatedOpportunity.toLocaleString()}
           </div>
-          <p className="stat-card-sub text-xs">
-            Uncaptured potential from cross-sells & bundles
-          </p>
+          <p className="stat-card-sub text-xs">Uncaptured potential across catalog</p>
         </div>
       </div>
 
-      {/* Merchant AI Copilot (Phase 26) */}
+      {/* Recommendation Performance Telemetry (Phase 27 & 30) */}
+      {recAnalytics && (
+        <div className="card mb-8 bg-gray-900/60 border-gray-800">
+          <div className="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+            <h2 className="text-base font-bold text-gray-200 flex items-center gap-2">
+              <BarChart2 className="text-blue-400" size={18} />
+              AI Recommendation & Conversion Telemetry
+            </h2>
+            <span className="text-xs text-gray-400 font-mono">Real database events</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Cross-Sell */}
+            <div className="p-4 rounded-lg bg-black/40 border border-gray-800 space-y-2">
+              <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider block">
+                Cross-Sell Attach Rate
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xl font-bold text-white">
+                  ₹{recAnalytics.cross_sell.revenue.toLocaleString()}
+                </span>
+                <span className="text-xs text-emerald-400 font-bold">
+                  {recAnalytics.cross_sell.conversion_rate}% Conv.
+                </span>
+              </div>
+              <div className="text-xs text-gray-400 space-y-1 pt-2 border-t border-gray-800/80 font-mono">
+                <div className="flex justify-between">
+                  <span>Shown:</span> <span>{recAnalytics.cross_sell.shown}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Clicked:</span> <span>{recAnalytics.cross_sell.clicked} ({recAnalytics.cross_sell.ctr}% CTR)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Purchased:</span> <span>{recAnalytics.cross_sell.purchased}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upsell */}
+            <div className="p-4 rounded-lg bg-black/40 border border-gray-800 space-y-2">
+              <span className="text-xs font-bold text-blue-300 uppercase tracking-wider block">
+                Upsell Upgrade Performance
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xl font-bold text-white">
+                  ₹{recAnalytics.upsell.revenue.toLocaleString()}
+                </span>
+                <span className="text-xs text-emerald-400 font-bold">
+                  {recAnalytics.upsell.conversion_rate}% Conv.
+                </span>
+              </div>
+              <div className="text-xs text-gray-400 space-y-1 pt-2 border-t border-gray-800/80 font-mono">
+                <div className="flex justify-between">
+                  <span>Shown:</span> <span>{recAnalytics.upsell.shown}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Clicked:</span> <span>{recAnalytics.upsell.clicked} ({recAnalytics.upsell.ctr}% CTR)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Purchased:</span> <span>{recAnalytics.upsell.purchased}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Discovery Recs */}
+            <div className="p-4 rounded-lg bg-black/40 border border-gray-800 space-y-2">
+              <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider block">
+                Discovery Recommendations
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xl font-bold text-white">
+                  ₹{recAnalytics.recommendations.revenue.toLocaleString()}
+                </span>
+                <span className="text-xs text-emerald-400 font-bold">
+                  {recAnalytics.recommendations.conversion_rate}% Conv.
+                </span>
+              </div>
+              <div className="text-xs text-gray-400 space-y-1 pt-2 border-t border-gray-800/80 font-mono">
+                <div className="flex justify-between">
+                  <span>Shown:</span> <span>{recAnalytics.recommendations.shown}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Clicked:</span> <span>{recAnalytics.recommendations.clicked}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Purchased:</span> <span>{recAnalytics.recommendations.purchased}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merchant AI Copilot */}
       <div className="card mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -183,7 +307,7 @@ export default function GrowthCenterPage() {
                   Ask me anything about your revenue, conversions, inventory, and cross-sell potential.
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Answers are dynamically synthesized from your actual database orders and catalog telemetry.
+                  Answers are synthesized from your actual database orders and catalog telemetry.
                 </p>
               </div>
             </div>
@@ -218,17 +342,17 @@ export default function GrowthCenterPage() {
                     </div>
                   )}
 
-                  {/* Proposed Campaign Gated Card (Phase 27) */}
+                  {/* Proposed Campaign Gated Card (Phase 30) */}
                   {item.response.proposed_campaign && (
-                    <div className="mt-3 p-3 bg-gray-900/80 border border-indigo-500/30 rounded-lg">
+                    <div className="mt-3 p-3.5 bg-gray-900/90 border border-indigo-500/40 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-indigo-300 uppercase tracking-wide flex items-center gap-1">
                           <Sparkles size={12} />
-                          AI Campaign Proposal (Requires Approval)
+                          AI Campaign Proposal (Requires Authorization)
                         </span>
-                        <span className="risk-pill risk-high">High Risk</span>
+                        <span className="badge badge-warning text-[10px]">High Risk</span>
                       </div>
-                      <h4 className="font-semibold text-sm">
+                      <h4 className="font-semibold text-sm text-gray-100">
                         {item.response.proposed_campaign.title}
                       </h4>
                       <p className="text-xs text-gray-400 mt-1">
@@ -243,19 +367,14 @@ export default function GrowthCenterPage() {
                         </span>
                         {approvedCampaigns[item.response.proposed_campaign.id] ? (
                           <span className="badge badge-success text-xs flex items-center gap-1">
-                            <ShieldCheck size={12} /> Approved & Scheduled
+                            <ShieldCheck size={12} /> Approved & Activated
                           </span>
                         ) : (
                           <button
-                            onClick={() =>
-                              setApprovedCampaigns((prev) => ({
-                                ...prev,
-                                [item.response.proposed_campaign!.id]: true,
-                              }))
-                            }
+                            onClick={() => handleApproveCampaign(item.response.proposed_campaign!.id)}
                             className="btn btn-primary btn-sm text-xs py-1"
                           >
-                            Approve Campaign
+                            Approve & Activate
                           </button>
                         )}
                       </div>
@@ -288,7 +407,7 @@ export default function GrowthCenterPage() {
         </form>
       </div>
 
-      {/* Growth Opportunities Grid (Phase 23) */}
+      {/* Growth Opportunities Grid */}
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <Sparkles className="text-amber-400" />
         Catalog Growth & Cross-Sell Opportunities

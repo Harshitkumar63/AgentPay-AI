@@ -40,5 +40,5 @@ def get_db():
 
 def init_db():
     """Create all database tables."""
-    from app.models import merchant, product, cart, order, payment, audit, agent, policy  # noqa: F401
+    import app.models  # noqa: F401
     Base.metadata.create_all(bind=engine)

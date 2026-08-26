@@ -13,8 +13,9 @@ export interface Product {
   active: boolean;
   image_url: string;
   tags: string[];
-  metadata_extra: Record<string, any>;
+  metadata_extra?: Record<string, any>;
   available?: boolean;
+  recommendation_score?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -39,11 +40,22 @@ export interface Cart {
   item_count?: number;
 }
 
+export interface TimelineEvent {
+  step: string;
+  status: string;
+  timestamp: string;
+  actor: string;
+  [key: string]: any;
+}
+
 export interface Order {
   id: string;
   merchant_id: string;
   user_id: string;
   cart_id: string | null;
+  agent_id?: string | null;
+  agent_session_id?: string | null;
+  approval_id?: string | null;
   razorpay_order_id: string | null;
   amount: number;
   currency: string;
@@ -52,6 +64,8 @@ export interface Order {
   receipt: string | null;
   idempotency_key?: string | null;
   order_type: string;
+  timeline?: TimelineEvent[];
+  decision_factors?: Record<string, any>;
   created_at: string;
   updated_at?: string;
 }
@@ -102,8 +116,12 @@ export interface WebhookEvent {
 export interface AgentAction {
   id: string;
   session_id: string;
+  request_id?: string | null;
+  tool_call_id?: string | null;
+  sequence_number?: number;
   action: string;
   tool_name: string;
+  event_type?: string;
   input_data: Record<string, any>;
   output_data: Record<string, any>;
   status: string;
@@ -141,8 +159,84 @@ export interface PolicySimulation {
     amount: number;
     discount_percentage: number;
     action: string;
+    agent_id?: string;
   };
   decision: PolicyCheckResult;
+}
+
+export interface AgentBudget {
+  id: string;
+  agent_id: string;
+  merchant_id: string;
+  daily_limit: number;
+  per_transaction_limit: number;
+  spent_today: number;
+  remaining_daily_budget: number;
+}
+
+export interface AgentTrust {
+  id: string;
+  agent_id: string;
+  trust_score: number;
+  successful_transactions: number;
+  failed_payments: number;
+  policy_violations: number;
+  duplicate_requests: number;
+  approval_rate: number;
+  risk_tier: string;
+  signals?: Record<string, any>;
+  disclaimer?: string;
+}
+
+export interface Approval {
+  id: string;
+  agent_session_id?: string | null;
+  order_id?: string | null;
+  merchant_id: string;
+  user_id: string;
+  action: string;
+  amount: number;
+  currency: string;
+  risk_level: string;
+  risk_score: number;
+  policy_result: Record<string, any>;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+  decision_reason?: string | null;
+  approved_by?: string | null;
+  created_at: string;
+  expires_at: string;
+  decided_at?: string | null;
+}
+
+export interface RecommendationAnalytics {
+  recommendations: {
+    shown: number;
+    clicked: number;
+    added: number;
+    purchased: number;
+    ctr: number;
+    conversion_rate: number;
+    revenue: number;
+  };
+  upsell: {
+    shown: number;
+    clicked: number;
+    added: number;
+    purchased: number;
+    ctr: number;
+    conversion_rate: number;
+    revenue: number;
+  };
+  cross_sell: {
+    shown: number;
+    clicked: number;
+    added: number;
+    purchased: number;
+    ctr: number;
+    conversion_rate: number;
+    revenue: number;
+  };
 }
 
 export interface RevenueAnalytics {
@@ -166,15 +260,22 @@ export interface GrowthRecommendation {
   evidence: string;
   recommended_action: string;
   estimated_opportunity: number;
+  actual_revenue_to_date?: number;
   products: { id: string; name: string; price: number }[];
 }
 
 export interface AgentStep {
-  step: number;
+  sequence?: number;
+  step?: number;
+  event_type?: string;
   tool: string;
   input: Record<string, any>;
   output_summary: string;
   status: string;
+  duration_ms?: number;
+  timestamp?: number;
+  request_id?: string;
+  session_id?: string;
 }
 
 export interface ChatResponse {
@@ -189,6 +290,7 @@ export interface ChatResponse {
     type: string;
     order: Order;
     policy: PolicyCheckResult | Record<string, any>;
+    approval?: { id: string; status: string; expires_at: string } | null;
     amount: number;
     message: string;
   } | null;
@@ -197,8 +299,10 @@ export interface ChatResponse {
     title: string;
     decision: string;
     factors: string[];
+    alternatives_not_selected?: string[];
   } | null;
   demo_mode: boolean;
+  limit_reached?: boolean;
 }
 
 export interface PaymentData {
@@ -216,16 +320,58 @@ export interface CopilotResponse {
   answer: string;
   metrics_used: Record<string, any>;
   suggested_actions: string[];
-  proposed_campaign?: {
-    id: string;
+  proposed_campaign?: CampaignProposal | null;
+}
+
+export interface CampaignProposal {
+  id: string;
+  merchant_id?: string;
+  product_id: string;
+  product_name: string;
+  title: string;
+  description?: string;
+  target_audience?: string;
+  discount_percentage: number;
+  budget: number;
+  duration_days: number;
+  estimated_opportunity: number;
+  evidence?: string;
+  risk_level?: string;
+  status: string;
+  created_at?: string;
+  activated_at?: string | null;
+}
+
+export interface DecisionReplayData {
+  order_id: string;
+  order_type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_status: string;
+  stages: {
+    sequence: number;
     title: string;
-    product_id: string;
-    product_name: string;
-    discount_percentage: number;
-    budget: number;
-    duration_days: number;
-    estimated_opportunity: number;
-    risk_level: string;
     status: string;
-  } | null;
+    summary: string;
+    details?: any;
+    timestamp: string;
+  }[];
+  timeline: TimelineEvent[];
+  decision_factors: {
+    title?: string;
+    decision?: string;
+    factors?: string[];
+    alternatives_not_selected?: string[];
+  };
+  approval?: Record<string, any> | null;
+  payment?: Record<string, any> | null;
+  audit_logs: {
+    id: string;
+    action: string;
+    actor: string;
+    actor_type: string;
+    result: string;
+    timestamp: string;
+  }[];
 }

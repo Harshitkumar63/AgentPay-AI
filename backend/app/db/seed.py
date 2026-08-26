@@ -1,17 +1,26 @@
-"""Seed script — creates demo merchant, products, and policies."""
+"""Seed script — creates realistic demo merchant, products, policies, orders, agent budget & trust data, and campaign proposals."""
 
+import uuid
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.models.merchant import Merchant
 from app.models.product import Product
 from app.models.policy import Policy
+from app.models.order import Order
+from app.models.payment import Payment
+from app.models.cart import Cart, CartItem
+from app.models.agent import Agent, AgentBudget, AgentTrust
+from app.models.recommendation_event import RecommendationEvent
+from app.models.campaign import CampaignProposal
+from app.models.audit import AuditLog
 
 
 DEMO_MERCHANT = {
     "id": "merchant_001",
     "name": "UrbanCart",
     "email": "hello@urbancart.demo",
-    "description": "Modern lifestyle products for urban professionals",
+    "description": "Modern lifestyle & performance products for professionals",
     "currency": "INR",
 }
 
@@ -180,19 +189,18 @@ DEMO_POLICY = {
 
 
 def seed_database():
-    """Seed database with demo data if not already seeded."""
+    """Seed database with rich demo data if not already seeded."""
     db = SessionLocal()
     try:
-        # Check if already seeded
         existing = db.query(Merchant).filter(Merchant.id == "merchant_001").first()
         if existing:
             return
 
-        # Create merchant
+        # 1. Create merchant
         merchant = Merchant(**DEMO_MERCHANT)
         db.add(merchant)
 
-        # Create products
+        # 2. Create products
         for prod_data in DEMO_PRODUCTS:
             product = Product(
                 id=prod_data["id"],
@@ -211,9 +219,172 @@ def seed_database():
             )
             db.add(product)
 
-        # Create policy
+        # 3. Create policy
         policy = Policy(**DEMO_POLICY)
         db.add(policy)
+
+        # 4. Create default agent budget
+        budget = AgentBudget(
+            id="ab_default",
+            agent_id="default_agent",
+            merchant_id="merchant_001",
+            daily_limit=10000.0,
+            per_transaction_limit=5000.0,
+            spent_today=2499.0,
+        )
+        db.add(budget)
+
+        # 5. Create default agent trust score
+        trust = AgentTrust(
+            id="at_default",
+            agent_id="default_agent",
+            trust_score=87,
+            successful_transactions=94,
+            failed_payments=3,
+            policy_violations=1,
+            duplicate_requests=0,
+            total_approvals_requested=100,
+            total_approvals_granted=91,
+        )
+        db.add(trust)
+
+        # 6. Create sample completed historical orders
+        now = datetime.now(timezone.utc)
+        sample_orders_data = [
+            {"amount": 2499.0, "type": "ai_assisted", "prod_id": "prod_001", "days_ago": 1},
+            {"amount": 2898.0, "type": "cross_sell", "prod_id": "prod_001", "days_ago": 3},
+            {"amount": 4999.0, "type": "upsell", "prod_id": "prod_004", "days_ago": 5},
+            {"amount": 1899.0, "type": "ai_assisted", "prod_id": "prod_011", "days_ago": 8},
+            {"amount": 799.0, "type": "normal", "prod_id": "prod_016", "days_ago": 12},
+        ]
+
+        for i, s_ord in enumerate(sample_orders_data):
+            ord_time = now - timedelta(days=s_ord["days_ago"])
+            cart = Cart(
+                id=f"cart_seed_{i}",
+                user_id="customer_demo",
+                merchant_id="merchant_001",
+                status="checked_out",
+                created_at=ord_time,
+            )
+            db.add(cart)
+
+            ci = CartItem(
+                id=f"ci_seed_{i}",
+                cart_id=cart.id,
+                product_id=s_ord["prod_id"],
+                quantity=1,
+                unit_price=s_ord["amount"],
+                created_at=ord_time,
+            )
+            db.add(ci)
+
+            order = Order(
+                id=f"order_seed_{i+100}",
+                merchant_id="merchant_001",
+                user_id="customer_demo",
+                cart_id=cart.id,
+                amount=s_ord["amount"],
+                currency="INR",
+                status="COMPLETED",
+                payment_status="captured",
+                receipt=f"receipt_seed_{i}",
+                order_type=s_ord["type"],
+                created_at=ord_time,
+                timeline=[
+                    {"step": "CART_CREATED", "status": "COMPLETED", "timestamp": str(ord_time), "actor": "user"},
+                    {"step": "POLICY_CHECKED", "status": "ALLOWED", "timestamp": str(ord_time), "actor": "policy_engine"},
+                    {"step": "PAYMENT_CAPTURED", "status": "COMPLETED", "timestamp": str(ord_time), "actor": "payment_service"},
+                    {"step": "ORDER_COMPLETED", "status": "SUCCESS", "timestamp": str(ord_time), "actor": "system"},
+                ],
+                decision_factors={
+                    "title": "Why order was fulfilled",
+                    "factors": ["User requested purchase", "Verified in-stock", "Passed policy check", "Payment captured"],
+                },
+            )
+            db.add(order)
+
+            payment = Payment(
+                id=f"pay_seed_{i}",
+                order_id=order.id,
+                amount=s_ord["amount"],
+                currency="INR",
+                status="captured",
+                method="card",
+                created_at=ord_time,
+            )
+            db.add(payment)
+
+        # 7. Seed Recommendation events
+        for _ in range(120):
+            db.add(RecommendationEvent(
+                merchant_id="merchant_001",
+                recommendation_type="cross_sell",
+                event_type="shown",
+                source_product_id="prod_001",
+                recommended_product_id="prod_002",
+            ))
+        for _ in range(35):
+            db.add(RecommendationEvent(
+                merchant_id="merchant_001",
+                recommendation_type="cross_sell",
+                event_type="clicked",
+                source_product_id="prod_001",
+                recommended_product_id="prod_002",
+            ))
+        for _ in range(12):
+            db.add(RecommendationEvent(
+                merchant_id="merchant_001",
+                recommendation_type="cross_sell",
+                event_type="purchased",
+                source_product_id="prod_001",
+                recommended_product_id="prod_002",
+                revenue_attributed=399.0,
+            ))
+
+        for _ in range(80):
+            db.add(RecommendationEvent(
+                merchant_id="merchant_001",
+                recommendation_type="upsell",
+                event_type="shown",
+                source_product_id="prod_001",
+                recommended_product_id="prod_004",
+            ))
+        for _ in range(20):
+            db.add(RecommendationEvent(
+                merchant_id="merchant_001",
+                recommendation_type="upsell",
+                event_type="clicked",
+                source_product_id="prod_001",
+                recommended_product_id="prod_004",
+            ))
+        for _ in range(6):
+            db.add(RecommendationEvent(
+                merchant_id="merchant_001",
+                recommendation_type="upsell",
+                event_type="purchased",
+                source_product_id="prod_001",
+                recommended_product_id="prod_004",
+                revenue_attributed=4999.0,
+            ))
+
+        # 8. Seed AI Campaign Proposals
+        camp = CampaignProposal(
+            id="camp_001",
+            merchant_id="merchant_001",
+            product_id="prod_005",
+            product_name="SwiftBook Pro 14\" Laptop",
+            title="Accelerate SwiftBook Pro Sales with 10% Bundle Discount",
+            description="Targeted campaign for recent electronics and productivity gear browsers.",
+            target_audience="Electronics & Laptop Category Browsers",
+            discount_percentage=10.0,
+            budget=2500.0,
+            duration_days=3,
+            estimated_opportunity=7500.0,
+            evidence="Views: 2,400 | Purchases: 43 | Conversion: 1.79% | Inventory: 8 units",
+            status="proposed",
+        )
+        db.add(camp)
 
         db.commit()
     except Exception as e:

@@ -39,3 +39,10 @@ docker-compose.override.yml
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Logs and archives
+*.log
+*.gz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -170,8 +170,11 @@ export interface AgentBudget {
   merchant_id: string;
   daily_limit: number;
   per_transaction_limit: number;
+  hourly_limit?: number;
   spent_today: number;
+  spent_this_hour?: number;
   remaining_daily_budget: number;
+  remaining_hourly_budget?: number;
 }
 
 export interface AgentTrust {
@@ -182,6 +185,7 @@ export interface AgentTrust {
   failed_payments: number;
   policy_violations: number;
   duplicate_requests: number;
+  velocity_violations?: number;
   approval_rate: number;
   risk_tier: string;
   signals?: Record<string, any>;
@@ -374,4 +378,248 @@ export interface DecisionReplayData {
     result: string;
     timestamp: string;
   }[];
+}
+
+// ── Multi-Agent Registry ──
+
+export interface AgentRegistryItem {
+  id: string;
+  name: string;
+  description: string;
+  role: string;
+  status: "ACTIVE" | "PAUSED" | "DISABLED" | "SUSPENDED";
+  permissions: string[];
+  daily_budget: number;
+  per_transaction_limit: number;
+  hourly_limit: number;
+  trust_score: number;
+  risk_level: string;
+  circuit_breaker_tripped: boolean;
+  circuit_breaker_reason?: string | null;
+  failed_payment_count: number;
+  is_active: boolean;
+  created_at: string;
+  last_activity: string;
+}
+
+export interface AgentSafetyCheck {
+  check_name: string;
+  passed: boolean;
+  score_points: number;
+  details: string;
+}
+
+export interface AgentSafetyReport {
+  agent_id: string;
+  agent_name: string;
+  safety_score: number;
+  status: string;
+  checks: AgentSafetyCheck[];
+  disclaimer: string;
+}
+
+// ── Negotiation ──
+
+export interface NegotiationProposal {
+  product_id: string;
+  product_name: string;
+  current_price: number;
+  requested_price: number;
+  max_allowed_discount: number;
+  max_discount_percentage: number;
+  minimum_margin_price: number;
+  final_offer: number;
+  discount_granted_percentage: number;
+  status: "ACCEPTED" | "COUNTER_OFFER" | "REJECTED";
+  reason: string;
+  currency: string;
+}
+
+// ── Dynamic Pricing ──
+
+export interface PricingSimulation {
+  is_simulation: boolean;
+  product_id: string;
+  product_name: string;
+  current_price: number;
+  suggested_price: number;
+  price_change_percentage: number;
+  stock_level: number;
+  weekly_sales_velocity: number;
+  elasticity_score: number;
+  estimated_revenue_impact: number;
+  reasons: string[];
+  disclaimer: string;
+}
+
+// ── Inventory Intelligence ──
+
+export interface InventoryItemIntelligence {
+  product_id: string;
+  product_name: string;
+  category: string;
+  price: number;
+  stock: number;
+  weekly_sales: number;
+  sales_velocity_daily: number;
+  estimated_days_remaining: number;
+  stockout_risk: "HIGH" | "MEDIUM" | "LOW";
+  overstock_risk: "HIGH" | "MEDIUM" | "LOW";
+  recommendation: string;
+  suggested_action: string;
+}
+
+export interface InventoryIntelligence {
+  merchant_id: string;
+  total_products: number;
+  high_stockout_items: InventoryItemIntelligence[];
+  overstock_items: InventoryItemIntelligence[];
+  all_inventory: InventoryItemIntelligence[];
+}
+
+// ── Cart Optimizer ──
+
+export interface CartOptimizationSuggestion {
+  action: "REPLACE" | "ADD_ACCESSORY" | "REMOVE";
+  original_product_id?: string;
+  original_product_name?: string;
+  suggested_product_id: string;
+  suggested_product_name: string;
+  price_difference: number;
+  reason: string;
+}
+
+export interface CartOptimizerProposal {
+  cart_id: string;
+  mode: string;
+  current_total: number;
+  optimized_total: number;
+  savings: number;
+  suggestions: CartOptimizationSuggestion[];
+  status: string;
+  disclaimer: string;
+}
+
+// ── What-If Simulator ──
+
+export interface BusinessSimulation {
+  is_simulation: boolean;
+  parameters: {
+    discount_percentage: number;
+    inventory_increase_percentage: number;
+    price_adjustment_percentage: number;
+    promoted_category?: string;
+  };
+  baseline_revenue: number;
+  estimated_revenue: number;
+  revenue_delta_percentage: number;
+  baseline_order_volume: number;
+  estimated_order_volume: number;
+  order_volume_delta_percentage: number;
+  estimated_margin_percentage: number;
+  confidence_level: string;
+  insights: string[];
+  disclaimer: string;
+}
+
+// ── AI A/B Testing ──
+
+export interface ExperimentVariant {
+  id: string;
+  name: string;
+  price: number;
+  views: number;
+  orders: number;
+  revenue: number;
+  conversion_rate: number;
+  aov: number;
+}
+
+export interface Experiment {
+  id: string;
+  merchant_id: string;
+  product_id?: string;
+  name: string;
+  hypothesis: string;
+  status: string;
+  ai_recommendation: string;
+  variants: ExperimentVariant[];
+  created_at: string;
+}
+
+// ── Refunds ──
+
+export interface Refund {
+  id: string;
+  order_id: string;
+  payment_id?: string | null;
+  merchant_id: string;
+  user_id: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: string;
+  risk_level: string;
+  risk_score: number;
+  approval_id?: string | null;
+  approved_by?: string | null;
+  decision_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+// ── Customer Memory ──
+
+export interface CustomerPreference {
+  id: string;
+  user_id: string;
+  preferred_categories: string[];
+  preferred_brands: string[];
+  preferred_colors: string[];
+  budget_min: number;
+  budget_max: number;
+  notes: string;
+  updated_at: string;
+}
+
+// ── Support ──
+
+export interface SupportResponse {
+  answer: string;
+  query: string;
+  intent: string;
+  order_details?: Record<string, any> | null;
+  payment_details?: Record<string, any> | null;
+  refund_details?: Record<string, any> | null;
+  suggested_actions: string[];
+}
+
+// ── Observability ──
+
+export interface ObservabilityMetrics {
+  avg_agent_response_ms: number;
+  avg_tool_latency_ms: number;
+  avg_payment_latency_ms: number;
+  avg_webhook_latency_ms: number;
+  llm_requests_count: number;
+  total_tokens_used: number;
+  estimated_ai_cost_inr: number;
+  ai_assisted_revenue_inr: number;
+  ai_roi_percentage: number;
+  cost_disclaimer: string;
+}
+
+export interface LiveEventItem {
+  id: string;
+  timestamp: string;
+  event_type: string;
+  actor: string;
+  actor_type?: string;
+  summary: string;
+  amount?: number | null;
+  currency?: string;
+  policy_result?: string | null;
+  approval_status?: string | null;
+  details?: Record<string, any>;
 }

@@ -85,13 +85,85 @@ def search_products(
     merchant_id: str = "merchant_001",
 ) -> List[Product]:
     """Search products with filters — used by AI agent."""
+
+    # Map common natural-language category terms to actual DB categories
+    CATEGORY_ALIASES = {
+        "laptop": "electronics",
+        "laptops": "electronics",
+        "computer": "electronics",
+        "computers": "electronics",
+        "phone": "electronics",
+        "phones": "electronics",
+        "smartphone": "electronics",
+        "smartphones": "electronics",
+        "mobile": "electronics",
+        "headphone": "electronics",
+        "headphones": "electronics",
+        "earphone": "electronics",
+        "earphones": "electronics",
+        "earbuds": "electronics",
+        "mouse": "electronics",
+        "keyboard": "electronics",
+        "tablet": "electronics",
+        "backpack": "bags",
+        "backpacks": "bags",
+        "bag": "bags",
+        "sleeve": "bags",
+        "shoe": "shoes",
+        "sneakers": "shoes",
+        "sneaker": "shoes",
+        "running shoes": "shoes",
+        "running shoe": "shoes",
+        "tshirt": "clothing",
+        "t-shirt": "clothing",
+        "shirt": "clothing",
+        "shirts": "clothing",
+        "pants": "clothing",
+        "jacket": "clothing",
+        "jackets": "clothing",
+        "yoga": "fitness",
+        "gym": "fitness",
+        "workout": "fitness",
+        "exercise": "fitness",
+        "resistance": "fitness",
+        "mat": "fitness",
+        "bottle": "fitness",
+        "water bottle": "fitness",
+        "socks": "accessories",
+        "case": "accessories",
+        "cover": "accessories",
+        "protector": "accessories",
+        "screen protector": "accessories",
+        "organizer": "accessories",
+    }
+
+    # Resolve the category using alias mapping
+    resolved_category = None
+    original_category_term = None
+    if category:
+        cat_lower = category.lower().strip()
+        resolved_category = CATEGORY_ALIASES.get(cat_lower, cat_lower)
+        original_category_term = cat_lower
+
     q = db.query(Product).filter(
         Product.active == True,
         Product.merchant_id == merchant_id,
     )
 
-    if category:
-        q = q.filter(func.lower(Product.category).contains(category.lower()))
+    # Apply category filter: precise matching for sub-types vs general categories
+    if resolved_category:
+        if original_category_term and original_category_term != resolved_category:
+            q = q.filter(
+                and_(
+                    func.lower(Product.category).contains(resolved_category),
+                    or_(
+                        func.lower(Product.name).contains(original_category_term),
+                        func.lower(Product.tags).contains(original_category_term),
+                    ),
+                )
+            )
+        else:
+            q = q.filter(func.lower(Product.category).contains(resolved_category))
 
     if max_price is not None:
         q = q.filter(Product.price <= max_price)
@@ -107,18 +179,28 @@ def search_products(
         words = [w for w in query.lower().split() if w not in stop_words and not w.startswith("₹") and not w.replace(".", "").isdigit()]
 
         if words:
-            # Build OR conditions for each keyword
+            # Build OR conditions for each keyword with singular/plural variants
             keyword_conditions = []
             for word in words:
-                term = f"%{word}%"
-                keyword_conditions.append(
-                    or_(
+                variants = {word}
+                if word.endswith("ies") and len(word) > 3:
+                    variants.add(word[:-3] + "y")
+                elif word.endswith("es") and len(word) > 3:
+                    variants.add(word[:-2])
+                    variants.add(word[:-1])
+                elif word.endswith("s") and len(word) > 2:
+                    variants.add(word[:-1])
+
+                word_or = []
+                for v in variants:
+                    term = f"%{v}%"
+                    word_or.extend([
                         func.lower(Product.name).like(term),
                         func.lower(Product.description).like(term),
                         func.lower(Product.category).like(term),
                         func.lower(Product.tags).like(term),
-                    )
-                )
+                    ])
+                keyword_conditions.append(or_(*word_or))
             q = q.filter(or_(*keyword_conditions))
 
     results = q.all()

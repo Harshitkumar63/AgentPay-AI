@@ -14,6 +14,8 @@ import {
   Zap,
   ShoppingBag,
   ExternalLink,
+  Bot,
+  Layers,
 } from "lucide-react";
 import {
   getBuyerTools,
@@ -25,6 +27,7 @@ import {
   getAgentBudget,
   getAgentTrust,
   decideApproval,
+  simulateA2ACommerce,
 } from "@/services/api";
 
 interface SimStep {
@@ -39,11 +42,16 @@ interface SimStep {
 }
 
 export default function AIBuyerSimulatorPage() {
+  const [activeTab, setActiveTab] = useState<"api_buyer" | "a2a">("api_buyer");
   const [goal, setGoal] = useState("Buy a SwiftBook laptop under ₹50000");
   const [isRunning, setIsRunning] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
-  const [activeTab, setActiveTab] = useState<"pipeline" | "raw_json">("pipeline");
   const [approvalId, setApprovalId] = useState<string | null>(null);
+
+  // A2A State
+  const [a2aGoal, setA2aGoal] = useState("Find running shoes under ₹3000 and negotiate best price");
+  const [a2aResult, setA2aResult] = useState<any>(null);
+  const [a2aLoading, setA2aLoading] = useState(false);
 
   const [steps, setSteps] = useState<SimStep[]>([
     { id: 1, title: "1. Discover Commerce Tools", endpoint: "/api/agent/v1/tools", method: "GET", status: "pending", explanation: "Agent queries MCP/OpenAI tool specifications to discover available actions." },
@@ -72,7 +80,6 @@ export default function AIBuyerSimulatorPage() {
     setIsRunning(true);
     setApprovalId(null);
 
-    // Reset all steps
     setSteps((prev) => prev.map((s) => ({ ...s, status: "pending", requestPayload: undefined, responsePayload: undefined })));
 
     try {
@@ -178,10 +185,22 @@ export default function AIBuyerSimulatorPage() {
     }
   };
 
+  const runA2A = async () => {
+    try {
+      setA2aLoading(true);
+      const res = await simulateA2ACommerce(a2aGoal);
+      setA2aResult(res);
+    } catch (err: any) {
+      alert(err.message || "A2A Simulation failed");
+    } finally {
+      setA2aLoading(false);
+    }
+  };
+
   const handleApprove = async () => {
     if (!approvalId) return;
     try {
-      const res = await decideApproval(approvalId, "APPROVED", "Approved via AI Buyer Simulator");
+      await decideApproval(approvalId, "APPROVED", "Approved via AI Buyer Simulator");
       updateStep(10, {
         status: "success",
         responsePayload: { ...steps[10].responsePayload, status: "APPROVED", approved_by: "merchant_admin" },
@@ -194,200 +213,282 @@ export default function AIBuyerSimulatorPage() {
 
   return (
     <AppLayout>
-      <div className="page-header flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="page-header flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
             <Cpu className="text-blue-400" />
-            AI Buyer Simulator
+            AI Buyer Simulator & Agent-to-Agent Commerce
           </h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Simulates external autonomous AI agents interacting directly with the AgentPay Machine-to-Machine Commerce API
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Tab Switcher */}
+        <div className="flex gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
           <button
-            onClick={runSimulation}
-            disabled={isRunning}
-            className="btn btn-primary flex items-center gap-2 text-sm"
+            onClick={() => setActiveTab("api_buyer")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === "api_buyer" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
           >
-            {isRunning ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
-            <span>{isRunning ? "Simulating Agent..." : "Run Autonomous Agent Simulation"}</span>
+            12-Stage API Buyer
+          </button>
+          <button
+            onClick={() => setActiveTab("a2a")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === "a2a" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Agent-to-Agent (A2A) Commerce
           </button>
         </div>
       </div>
 
-      {/* Goal Input & Agent Architecture Banner */}
-      <div className="card bg-gray-900/80 border-gray-800 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-1">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
-              Autonomous Agent Prompt / Goal
-            </label>
-            <div className="flex items-center gap-2">
+      {activeTab === "api_buyer" ? (
+        <>
+          {/* Goal Input & Agent Architecture Banner */}
+          <div className="card bg-slate-900/80 border-slate-800 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex-1">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                  Autonomous Agent Prompt / Goal
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={goal}
+                    onChange={(e) => setGoal(e.target.value)}
+                    disabled={isRunning}
+                    className="input-field flex-1 font-mono text-sm bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-white"
+                  />
+                  <button
+                    onClick={runSimulation}
+                    disabled={isRunning}
+                    className="btn btn-primary flex items-center gap-2 text-xs py-2.5 px-4 font-bold shrink-0"
+                  >
+                    {isRunning ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+                    <span>{isRunning ? "Simulating..." : "Run 12-Stage Simulation"}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg text-xs space-y-1">
+                <div className="flex items-center gap-2 text-blue-300 font-semibold">
+                  <Zap size={14} />
+                  <span>EXTERNAL AI AGENT → AGENTPAY API</span>
+                </div>
+                <p className="text-slate-400">
+                  Protocol: REST v1 + MCP | Policy Gated | Zero Hardcoded Hallucination
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Approval Banner if waiting */}
+          {approvalId && (
+            <div className="card bg-amber-950/40 border border-amber-500/50 p-4 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="text-amber-400" size={24} />
+                <div>
+                  <h4 className="text-sm font-bold text-amber-200">Human Authorization Required</h4>
+                  <p className="text-xs text-amber-300/80">
+                    The AI Buyer has prepared the order, but Policy Engine requires merchant approval for ₹49,999.
+                  </p>
+                </div>
+              </div>
+              <button onClick={handleApprove} className="btn btn-primary btn-sm text-xs py-2 px-3">
+                ✓ Grant Human Approval
+              </button>
+            </div>
+          )}
+
+          {/* 12-Step Autonomous Workflow */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-3">
+              <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-2">
+                12-Stage Execution Lifecycle
+              </h2>
+
+              {steps.map((s, idx) => (
+                <div
+                  key={s.id}
+                  className={`p-3.5 rounded-xl border transition-all ${
+                    s.status === "success"
+                      ? "bg-emerald-950/15 border-emerald-500/30"
+                      : s.status === "waiting_approval"
+                      ? "bg-amber-950/20 border-amber-500/50"
+                      : s.status === "running"
+                      ? "bg-blue-950/30 border-blue-500/50"
+                      : s.status === "blocked"
+                      ? "bg-rose-950/20 border-rose-500/40"
+                      : "bg-slate-900/40 border-slate-800/80 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      {s.status === "success" ? (
+                        <CheckCircle2 size={16} className="text-emerald-400" />
+                      ) : s.status === "running" ? (
+                        <RefreshCw size={16} className="text-blue-400 animate-spin" />
+                      ) : s.status === "waiting_approval" ? (
+                        <AlertCircle size={16} className="text-amber-400 animate-pulse" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center text-[10px] text-slate-400">
+                          {s.id}
+                        </div>
+                      )}
+                      <h3 className="text-sm font-semibold text-slate-100">{s.title}</h3>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-950 text-slate-300">
+                        {s.method} {s.endpoint}
+                      </span>
+                      <span
+                        className={`badge text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                          s.status === "success"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : s.status === "waiting_approval"
+                            ? "bg-amber-500/10 text-amber-400"
+                            : s.status === "running"
+                            ? "bg-blue-500/10 text-blue-400"
+                            : "bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400 mt-1 pl-6.5">{s.explanation}</p>
+
+                  {/* Inline Payload Preview */}
+                  {s.responsePayload && (
+                    <div className="mt-2.5 ml-6.5 p-2 rounded bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto">
+                      <span className="text-blue-400 font-bold">API Response: </span>
+                      {JSON.stringify(s.responsePayload)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Live Machine-to-Machine Inspector */}
+            <div className="card bg-slate-900/90 border-slate-800 h-fit sticky top-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <Terminal size={16} className="text-blue-400" />
+                  Live API Inspector
+                </h3>
+                <span className="text-xs text-slate-400 font-mono">AgentPay v1</span>
+              </div>
+
+              <div className="space-y-4 text-xs font-mono">
+                <div>
+                  <p className="text-slate-400 font-bold mb-1">Target Endpoint:</p>
+                  <p className="p-2 rounded bg-slate-950 border border-slate-800 text-blue-300 break-all">
+                    {currentStepIndex >= 0 ? steps[currentStepIndex].endpoint : "/api/agent/v1/tools"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-slate-400 font-bold mb-1">Authorization Scope:</p>
+                  <div className="p-2 rounded bg-slate-950 border border-slate-800 text-emerald-400 flex flex-wrap gap-1">
+                    <span>catalog:read</span> • <span>cart:write</span> • <span>checkout:create</span> • <span>payment:read</span>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-slate-400 font-bold mb-1">Governance Gates:</p>
+                  <div className="space-y-1 p-2 rounded bg-slate-950 border border-slate-800 text-slate-300">
+                    <div className="flex justify-between">
+                      <span>Policy Check:</span>
+                      <span className="text-emerald-400 font-bold">✓ DETERMINISTIC</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Risk Scoring:</span>
+                      <span className="text-amber-400 font-bold">HIGH (Score: 95)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Agent Budget:</span>
+                      <span className="text-emerald-400 font-bold">AVAILABLE</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Trust Score:</span>
+                      <span className="text-emerald-400 font-bold">87/100 (LOW RISK)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Agent-to-Agent (A2A) Commerce Tab */
+        <div className="space-y-6">
+          <div className="card bg-slate-900/80 border-slate-800">
+            <h2 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+              <Bot size={18} className="text-purple-400" />
+              Machine-to-Machine Commerce Negotiation Pipeline
+            </h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Simulates a Customer AI Agent negotiating and completing checkout with the Merchant Shopping Agent.
+            </p>
+
+            <div className="flex gap-3">
               <input
                 type="text"
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
-                disabled={isRunning}
-                className="input-field flex-1 font-mono text-sm"
+                value={a2aGoal}
+                onChange={(e) => setA2aGoal(e.target.value)}
+                disabled={a2aLoading}
+                className="flex-1 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800 text-xs text-white focus:border-purple-500 focus:outline-none"
               />
+              <button
+                onClick={runA2A}
+                disabled={a2aLoading}
+                className="btn btn-primary text-xs py-2.5 px-5 font-bold flex items-center gap-2"
+              >
+                {a2aLoading ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+                Simulate A2A Commerce
+              </button>
             </div>
           </div>
 
-          <div className="p-3 bg-black/40 border border-gray-800 rounded-lg text-xs space-y-1">
-            <div className="flex items-center gap-2 text-indigo-300 font-semibold">
-              <Zap size={14} />
-              <span>EXTERNAL AI AGENT → AGENTPAY API</span>
-            </div>
-            <p className="text-gray-400">
-              Protocol: REST v1 + MCP | Policy Gated | Zero Hardcoded Hallucination
-            </p>
-          </div>
-        </div>
-      </div>
+          {a2aResult && (
+            <div className="card space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">A2A STATUS</span>
+                  <div className="text-lg font-bold text-white mt-0.5">{a2aResult.final_status}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-purple-400">₹{a2aResult.amount.toLocaleString()}</div>
+                  <div className="text-xs text-slate-400">Risk Level: {a2aResult.risk_level}</div>
+                </div>
+              </div>
 
-      {/* Approval Banner if waiting */}
-      {approvalId && (
-        <div className="card bg-amber-950/40 border border-amber-500/50 p-4 mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="text-amber-400" size={24} />
-            <div>
-              <h4 className="text-sm font-bold text-amber-200">Human Authorization Required</h4>
-              <p className="text-xs text-amber-300/80">
-                The AI Buyer has prepared the order, but Policy Engine requires merchant approval for ₹49,999.
-              </p>
+              {/* Steps */}
+              <div className="space-y-3">
+                {a2aResult.steps.map((st: any, idx: number) => (
+                  <div key={idx} className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+                      {st.stage}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-bold text-white font-mono">{st.actor} → {st.action}</span>
+                        <span className="text-[10px] text-emerald-400 font-bold">{st.status}</span>
+                      </div>
+                      <p className="text-slate-400 leading-relaxed">{st.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-          <button onClick={handleApprove} className="btn btn-primary btn-sm">
-            ✓ Grant Human Approval
-          </button>
+          )}
         </div>
       )}
-
-      {/* 12-Step Autonomous Workflow */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-3">
-          <h2 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-2">
-            12-Stage Execution Lifecycle
-          </h2>
-
-          {steps.map((s, idx) => {
-            const isCurrent = currentStepIndex === idx && isRunning;
-            return (
-              <div
-                key={s.id}
-                className={`p-3.5 rounded-lg border transition-all ${
-                  s.status === "success"
-                    ? "bg-emerald-950/15 border-emerald-500/30"
-                    : s.status === "waiting_approval"
-                    ? "bg-amber-950/20 border-amber-500/50"
-                    : s.status === "running"
-                    ? "bg-blue-950/30 border-blue-500/50"
-                    : s.status === "blocked"
-                    ? "bg-rose-950/20 border-rose-500/40"
-                    : "bg-gray-900/40 border-gray-800/80 opacity-60"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    {s.status === "success" ? (
-                      <CheckCircle2 size={16} className="text-emerald-400" />
-                    ) : s.status === "running" ? (
-                      <RefreshCw size={16} className="text-blue-400 animate-spin" />
-                    ) : s.status === "waiting_approval" ? (
-                      <AlertCircle size={16} className="text-amber-400 animate-pulse" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-gray-600 flex items-center justify-center text-[10px] text-gray-400">
-                        {s.id}
-                      </div>
-                    )}
-                    <h3 className="text-sm font-semibold text-gray-100">{s.title}</h3>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs px-2 py-0.5 rounded bg-black/50 text-gray-300">
-                      {s.method} {s.endpoint}
-                    </span>
-                    <span
-                      className={`badge text-[10px] uppercase font-bold ${
-                        s.status === "success"
-                          ? "badge-success"
-                          : s.status === "waiting_approval"
-                          ? "badge-warning"
-                          : s.status === "running"
-                          ? "badge-info"
-                          : "badge-secondary"
-                      }`}
-                    >
-                      {s.status}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-400 mt-1 pl-6.5">{s.explanation}</p>
-
-                {/* Inline Payload Preview */}
-                {s.responsePayload && (
-                  <div className="mt-2.5 ml-6.5 p-2 rounded bg-black/60 border border-gray-800 text-[11px] font-mono text-gray-300 overflow-x-auto">
-                    <span className="text-indigo-400 font-bold">API Response: </span>
-                    {JSON.stringify(s.responsePayload)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Live Machine-to-Machine Inspector */}
-        <div className="card bg-gray-900/90 border-gray-800 h-fit sticky top-6">
-          <div className="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
-            <h3 className="text-sm font-bold text-gray-200 flex items-center gap-2">
-              <Terminal size={16} className="text-indigo-400" />
-              Live API Inspector
-            </h3>
-            <span className="text-xs text-gray-400 font-mono">AgentPay v1</span>
-          </div>
-
-          <div className="space-y-4 text-xs font-mono">
-            <div>
-              <p className="text-gray-400 font-bold mb-1">Target Endpoint:</p>
-              <p className="p-2 rounded bg-black/60 border border-gray-800 text-blue-300 break-all">
-                {currentStepIndex >= 0 ? steps[currentStepIndex].endpoint : "/api/agent/v1/tools"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-gray-400 font-bold mb-1">Authorization Scope:</p>
-              <div className="p-2 rounded bg-black/60 border border-gray-800 text-emerald-400 flex flex-wrap gap-1">
-                <span>catalog:read</span> • <span>cart:write</span> • <span>checkout:create</span> • <span>payment:read</span>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-gray-400 font-bold mb-1">Governance Gates:</p>
-              <div className="space-y-1 p-2 rounded bg-black/60 border border-gray-800 text-gray-300">
-                <div className="flex justify-between">
-                  <span>Policy Check:</span>
-                  <span className="text-emerald-400 font-bold">✓ DETERMINISTIC</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Risk Scoring:</span>
-                  <span className="text-amber-400 font-bold">HIGH (Score: 95)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Agent Budget:</span>
-                  <span className="text-emerald-400 font-bold">AVAILABLE</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Trust Score:</span>
-                  <span className="text-emerald-400 font-bold">87/100 (LOW RISK)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </AppLayout>
   );
 }

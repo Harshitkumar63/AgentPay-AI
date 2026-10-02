@@ -1,4 +1,4 @@
-"""Seed script — creates realistic demo merchant, products, policies, orders, agent budget & trust data, and campaign proposals."""
+"""Seed script — creates realistic demo merchant, products, policies, orders, multi-agents, preferences, A/B experiments, and campaign proposals."""
 
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -14,6 +14,10 @@ from app.models.agent import Agent, AgentBudget, AgentTrust
 from app.models.recommendation_event import RecommendationEvent
 from app.models.campaign import CampaignProposal
 from app.models.audit import AuditLog
+from app.models.customer_preference import CustomerPreference
+from app.models.experiment import Experiment, ExperimentVariant
+from app.models.refund import Refund
+from app.services.agent_registry_service import DEFAULT_AGENTS
 
 
 DEMO_MERCHANT = {
@@ -175,6 +179,15 @@ DEMO_PRODUCTS = [
         "metadata_extra": {"colors": ["black", "blue", "grey", "white"], "sizes": ["S", "M", "L", "XL"],
                            "cross_sell": ["prod_001", "prod_002"]},
     },
+    {
+        "id": "prod_017", "name": "LiteBook 14\" Student Laptop", "slug": "litebook-14-student-laptop",
+        "description": "Slim, lightweight laptop with 14-inch Full HD screen, 8GB RAM, 256GB SSD, and 10-hour battery. Ideal for students and daily productivity.",
+        "category": "electronics", "price": 38999, "stock": 15,
+        "image_url": "/images/laptop.jpg",
+        "tags": ["laptop", "electronics", "student", "notebook", "budget"],
+        "metadata_extra": {"brand": "LiteBook", "ram": "8GB", "storage": "256GB SSD",
+                           "cross_sell": ["prod_006", "prod_007"]},
+    },
 ]
 
 DEMO_POLICY = {
@@ -194,6 +207,27 @@ def seed_database():
     try:
         existing = db.query(Merchant).filter(Merchant.id == "merchant_001").first()
         if existing:
+            # Sync any newly added demo products
+            for prod_data in DEMO_PRODUCTS:
+                prod_exists = db.query(Product).filter(Product.id == prod_data["id"]).first()
+                if not prod_exists:
+                    product = Product(
+                        id=prod_data["id"],
+                        merchant_id="merchant_001",
+                        name=prod_data["name"],
+                        slug=prod_data["slug"],
+                        description=prod_data["description"],
+                        category=prod_data["category"],
+                        price=prod_data["price"],
+                        currency="INR",
+                        stock=prod_data["stock"],
+                        active=True,
+                        image_url=prod_data.get("image_url", ""),
+                        tags=prod_data.get("tags", []),
+                        metadata_extra=prod_data.get("metadata_extra", {}),
+                    )
+                    db.add(product)
+            db.commit()
             return
 
         # 1. Create merchant
@@ -223,18 +257,36 @@ def seed_database():
         policy = Policy(**DEMO_POLICY)
         db.add(policy)
 
-        # 4. Create default agent budget
+        # 4. Create specialized multi-agents
+        for t in DEFAULT_AGENTS:
+            agent = Agent(
+                id=t["id"],
+                name=t["name"],
+                description=t["description"],
+                role=t["role"],
+                status=t["status"],
+                permissions=t["permissions"],
+                daily_budget=t["daily_budget"],
+                per_transaction_limit=t["per_transaction_limit"],
+                hourly_limit=t["hourly_limit"],
+                trust_score=t["trust_score"],
+                risk_level=t["risk_level"],
+            )
+            db.add(agent)
+
+        # 5. Create default agent budget
         budget = AgentBudget(
             id="ab_default",
             agent_id="default_agent",
             merchant_id="merchant_001",
             daily_limit=10000.0,
             per_transaction_limit=5000.0,
+            hourly_limit=7500.0,
             spent_today=2499.0,
         )
         db.add(budget)
 
-        # 5. Create default agent trust score
+        # 6. Create default agent trust score
         trust = AgentTrust(
             id="at_default",
             agent_id="default_agent",
@@ -243,12 +295,27 @@ def seed_database():
             failed_payments=3,
             policy_violations=1,
             duplicate_requests=0,
+            velocity_violations=0,
             total_approvals_requested=100,
             total_approvals_granted=91,
         )
         db.add(trust)
 
-        # 6. Create sample completed historical orders
+        # 7. Create customer preferences (Memory)
+        pref = CustomerPreference(
+            id="pref_demo",
+            user_id="demo_user",
+            merchant_id="merchant_001",
+            preferred_categories=["shoes", "fitness", "electronics"],
+            preferred_brands=["ProRunner", "SwiftBook"],
+            preferred_colors=["black", "blue"],
+            budget_min=1000.0,
+            budget_max=5000.0,
+            notes="Prefers lightweight and ergonomic gear.",
+        )
+        db.add(pref)
+
+        # 8. Create sample completed historical orders
         now = datetime.now(timezone.utc)
         sample_orders_data = [
             {"amount": 2499.0, "type": "ai_assisted", "prod_id": "prod_001", "days_ago": 1},
@@ -315,7 +382,39 @@ def seed_database():
             )
             db.add(payment)
 
-        # 7. Seed Recommendation events
+        # 9. Seed A/B Experiment
+        exp = Experiment(
+            id="exp_seed_01",
+            merchant_id="merchant_001",
+            product_id="prod_001",
+            name="ProRunner X1 Price Optimization Test",
+            hypothesis="Testing ₹2,299 price point vs ₹2,499 baseline to quantify volume elasticity and revenue lift.",
+            status="RUNNING",
+            ai_recommendation="Variant B demonstrates a +14.2% conversion lift and +7.8% higher total revenue. Recommend standardizing on Variant B.",
+        )
+        db.add(exp)
+
+        v_a = ExperimentVariant(
+            id="var_seed_01",
+            experiment_id=exp.id,
+            name="Variant A (₹2,499 Control)",
+            price=2499.0,
+            views=320,
+            orders=24,
+            revenue=59976.0,
+        )
+        v_b = ExperimentVariant(
+            id="var_seed_02",
+            experiment_id=exp.id,
+            name="Variant B (₹2,299 Test)",
+            price=2299.0,
+            views=315,
+            orders=34,
+            revenue=78166.0,
+        )
+        db.add_all([v_a, v_b])
+
+        # 10. Seed Recommendation events
         for _ in range(120):
             db.add(RecommendationEvent(
                 merchant_id="merchant_001",
@@ -368,7 +467,7 @@ def seed_database():
                 revenue_attributed=4999.0,
             ))
 
-        # 8. Seed AI Campaign Proposals
+        # 11. Seed AI Campaign Proposals
         camp = CampaignProposal(
             id="camp_001",
             merchant_id="merchant_001",

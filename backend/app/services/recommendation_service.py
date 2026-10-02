@@ -23,9 +23,26 @@ def calculate_recommendation_score(
     """
     score = 10  # Baseline popularity score
 
-    # Category match
-    if target_category and product.category.lower() == target_category.lower():
-        score += 35
+    # Category and direct product name match
+    if target_category:
+        tc = target_category.lower().rstrip("s")
+        prod_name = product.name.lower()
+        prod_cat = product.category.lower()
+        prod_tags = [t.lower() for t in (product.tags or [])]
+
+        # Prioritize core devices over accessory items (e.g. laptop over laptop sleeve)
+        is_accessory = any(acc in prod_name for acc in ["sleeve", "case", "bag", "cover", "protector", "backpack"])
+
+        if tc in prod_name and not is_accessory:
+            score += 50  # Direct core device match
+        elif tc in prod_name and is_accessory:
+            score += 20  # Related accessory
+        elif prod_cat == tc or prod_cat == target_category.lower():
+            score += 35
+        elif tc in ["laptop", "phone", "computer", "headphone"] and prod_cat == "electronics":
+            score += 40
+        elif any(tc == t.rstrip("s") for t in prod_tags):
+            score += 25
 
     # Budget match
     if budget_cap is not None:

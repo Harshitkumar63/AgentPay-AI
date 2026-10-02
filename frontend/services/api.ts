@@ -20,6 +20,19 @@ import {
   RecommendationAnalytics,
   CampaignProposal,
   DecisionReplayData,
+  AgentRegistryItem,
+  AgentSafetyReport,
+  NegotiationProposal,
+  PricingSimulation,
+  InventoryIntelligence,
+  CartOptimizerProposal,
+  BusinessSimulation,
+  Experiment,
+  Refund,
+  CustomerPreference,
+  SupportResponse,
+  ObservabilityMetrics,
+  LiveEventItem,
 } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -107,8 +120,8 @@ export const getOrderTimeline = (id: string) =>
     `/api/orders/${id}/timeline`
   );
 
-export const getDecisionReplay = (id: string) =>
-  fetchAPI<DecisionReplayData>(`/api/orders/${id}/decision-replay`);
+export const getDecisionReplay = (orderId: string) =>
+  fetchAPI<DecisionReplayData>(`/api/orders/${orderId}/decision-replay`);
 
 // ── Payments ──
 export const createPayment = (orderId: string) =>
@@ -133,15 +146,18 @@ export const verifyPayment = (data: {
 export const getPaymentStatus = (orderId: string) =>
   fetchAPI<Record<string, any>>(`/api/payments/${orderId}`);
 
-// ── Analytics, Recommendations & Growth ──
+// ── Analytics & Growth ──
 export const getRevenueAnalytics = (merchantId = 'merchant_001', days = 30) =>
   fetchAPI<RevenueAnalytics>(`/api/analytics/revenue?merchant_id=${merchantId}&days=${days}`);
 
 export const getProductAnalytics = (merchantId = 'merchant_001') =>
-  fetchAPI<Record<string, any>[]>(`/api/analytics/products?merchant_id=${merchantId}`);
+  fetchAPI<any[]>(`/api/analytics/products?merchant_id=${merchantId}`);
+
+export const getAIAnalytics = (merchantId = 'merchant_001') =>
+  fetchAPI<GrowthRecommendation[]>(`/api/analytics/ai?merchant_id=${merchantId}`);
 
 export const getGrowthRecommendations = (merchantId = 'merchant_001') =>
-  fetchAPI<GrowthRecommendation[]>(`/api/analytics/ai?merchant_id=${merchantId}`);
+  getAIAnalytics(merchantId);
 
 export const getRecommendationAnalytics = (merchantId = 'merchant_001') =>
   fetchAPI<RecommendationAnalytics>(`/api/analytics/recommendations?merchant_id=${merchantId}`);
@@ -197,7 +213,7 @@ export const getAgentBudget = (agentId = 'default_agent', merchantId = 'merchant
   fetchAPI<AgentBudget>(`/api/agent/budget?agent_id=${agentId}&merchant_id=${merchantId}`);
 
 export const updateAgentBudget = (
-  limits: { daily_limit?: number; per_transaction_limit?: number },
+  limits: { daily_limit?: number; per_transaction_limit?: number; hourly_limit?: number },
   agentId = 'default_agent',
   merchantId = 'merchant_001'
 ) =>
@@ -264,6 +280,154 @@ export const getAuditLogs = (limit = 50, action?: string) =>
 
 export const getAuditLog = (id: string) => fetchAPI<AuditLog>(`/api/audit/${id}`);
 
+// ── Multi-Agent Registry & Governance ──
+export const getAgents = () => fetchAPI<AgentRegistryItem[]>('/api/agents');
+
+export const getAgent = (agentId: string) => fetchAPI<AgentRegistryItem>(`/api/agents/${agentId}`);
+
+export const setAgentStatus = (agentId: string, status: 'ACTIVE' | 'PAUSED' | 'DISABLED', reason?: string) =>
+  fetchAPI<{ success: boolean; agent_id: string; name: string; old_status: string; new_status: string; message: string }>(
+    `/api/agents/${agentId}/status`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ status, reason }),
+    }
+  );
+
+export const getAgentSafetyCertification = (agentId: string) =>
+  fetchAPI<AgentSafetyReport>(`/api/agents/${agentId}/safety`);
+
+// ── Negotiation Engine ──
+export const proposeNegotiation = (productId: string, requestedPrice: number, merchantId = 'merchant_001', agentId = 'ShoppingBot') =>
+  fetchAPI<NegotiationProposal>('/api/negotiation/propose', {
+    method: 'POST',
+    body: JSON.stringify({
+      product_id: productId,
+      requested_price: requestedPrice,
+      merchant_id: merchantId,
+      agent_id: agentId,
+    }),
+  });
+
+// ── Dynamic Pricing Simulator ──
+export const simulatePricing = (productId: string, competitorAdjustment = 0, demandMultiplier = 1) =>
+  fetchAPI<PricingSimulation>('/api/pricing/simulate', {
+    method: 'POST',
+    body: JSON.stringify({
+      product_id: productId,
+      competitor_price_adjustment: competitorAdjustment,
+      demand_multiplier: demandMultiplier,
+    }),
+  });
+
+// ── Inventory Intelligence ──
+export const getInventoryIntelligence = (merchantId = 'merchant_001') =>
+  fetchAPI<InventoryIntelligence>(`/api/inventory/intelligence?merchant_id=${merchantId}`);
+
+// ── Cart Optimizer ──
+export const optimizeCartProposal = (cartId: string, mode = 'BEST_VALUE') =>
+  fetchAPI<CartOptimizerProposal>('/api/cart-optimizer/optimize', {
+    method: 'POST',
+    body: JSON.stringify({ cart_id: cartId, mode }),
+  });
+
+export const applyCartOptimization = (cartId: string, mode = 'MINIMUM_PRICE') =>
+  fetchAPI<{ success: boolean; cart: Cart; applied_mode: string; message: string }>(
+    '/api/cart-optimizer/apply',
+    {
+      method: 'POST',
+      body: JSON.stringify({ cart_id: cartId, mode }),
+    }
+  );
+
+// ── What-If Business Simulator ──
+export const simulateWhatIf = (params: {
+  discount_percentage?: number;
+  inventory_increase_percentage?: number;
+  price_adjustment_percentage?: number;
+  promoted_category?: string;
+  merchant_id?: string;
+}) =>
+  fetchAPI<BusinessSimulation>('/api/simulator/what-if', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+
+// ── A/B Testing ──
+export const getExperiments = (merchantId = 'merchant_001') =>
+  fetchAPI<Experiment[]>(`/api/experiments?merchant_id=${merchantId}`);
+
+export const createExperiment = (data: {
+  product_id: string;
+  name: string;
+  hypothesis: string;
+  variant_a_price: number;
+  variant_b_price: number;
+  merchant_id?: string;
+}) =>
+  fetchAPI<Experiment>('/api/experiments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+// ── Refunds ──
+export const getRefunds = (merchantId = 'merchant_001') =>
+  fetchAPI<Refund[]>(`/api/refunds?merchant_id=${merchantId}`);
+
+export const createRefundRequest = (data: {
+  order_id: string;
+  amount: number;
+  reason: string;
+  user_id?: string;
+  merchant_id?: string;
+}) =>
+  fetchAPI<any>('/api/refunds/request', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const decideRefund = (refundId: string, status: 'APPROVED' | 'REJECTED', reason?: string) =>
+  fetchAPI<any>(`/api/refunds/${refundId}/decide`, {
+    method: 'POST',
+    body: JSON.stringify({ status, approved_by: 'merchant_admin', decision_reason: reason }),
+  });
+
+// ── Customer Memory ──
+export const getCustomerPreferences = (userId = 'demo_user') =>
+  fetchAPI<CustomerPreference>(`/api/customer-memory?user_id=${userId}`);
+
+export const updateCustomerPreferences = (data: Partial<CustomerPreference>, userId = 'demo_user') =>
+  fetchAPI<CustomerPreference>(`/api/customer-memory?user_id=${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const deleteCustomerPreferences = (userId = 'demo_user') =>
+  fetchAPI<{ success: boolean; message: string }>(`/api/customer-memory?user_id=${userId}`, {
+    method: 'DELETE',
+  });
+
+// ── Customer Support ──
+export const querySupportAgent = (query: string, userId = 'demo_user', orderId?: string) =>
+  fetchAPI<SupportResponse>('/api/support/query', {
+    method: 'POST',
+    body: JSON.stringify({ query, user_id: userId, order_id: orderId }),
+  });
+
+// ── Live Stream & Observability ──
+export const getLiveEvents = (limit = 30) =>
+  fetchAPI<{ count: number; events: LiveEventItem[] }>(`/api/live/events?limit=${limit}`);
+
+export const getObservabilityMetrics = (merchantId = 'merchant_001') =>
+  fetchAPI<ObservabilityMetrics>(`/api/live/metrics?merchant_id=${merchantId}`);
+
+// ── Agent-to-Agent Commerce ──
+export const simulateA2ACommerce = (goal = 'Buy the best value running shoes under ₹3000') =>
+  fetchAPI<any>('/api/a2a/simulate', {
+    method: 'POST',
+    body: JSON.stringify({ customer_agent_goal: goal }),
+  });
+
 // ── AI Buyer API (v1) Direct ──
 export const getBuyerTools = () => fetchAPI<Record<string, any>>('/api/agent/v1/tools');
 
@@ -312,3 +476,66 @@ export const callMcpTool = (toolName: string, args: Record<string, any> = {}) =>
     method: 'POST',
     body: JSON.stringify({ tool_name: toolName, arguments: args }),
   });
+
+// ── Admin System Controls & Global Kill Switch ──
+export const getSystemStatus = () =>
+  fetchAPI<{
+    global_write_enabled: boolean;
+    payments_enabled: boolean;
+    campaigns_enabled: boolean;
+    agent_execution_enabled: boolean;
+    reason: string;
+    last_updated: string;
+  }>('/api/admin/system/status');
+
+export const pauseSystem = (reason?: string) =>
+  fetchAPI<any>(`/api/admin/system/pause${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, { method: 'POST' });
+
+export const resumeSystem = (reason?: string) =>
+  fetchAPI<any>(`/api/admin/system/resume${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, { method: 'POST' });
+
+export const pausePayments = (reason?: string) =>
+  fetchAPI<any>(`/api/admin/system/pause-payments${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, { method: 'POST' });
+
+export const pauseAgents = (reason?: string) =>
+  fetchAPI<any>(`/api/admin/system/pause-agents${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, { method: 'POST' });
+
+// ── Admin Agent Key Rotation & Status ──
+export const rotateAgentKey = (agentId: string) =>
+  fetchAPI<{ success: boolean; agent_id: string; api_key: string; api_key_prefix: string; message: string }>(
+    `/api/admin/agents/${agentId}/rotate-key`,
+    { method: 'POST' }
+  );
+
+export const pauseAgent = (agentId: string, reason?: string) =>
+  fetchAPI<any>(`/api/admin/agents/${agentId}/pause${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, { method: 'POST' });
+
+export const resumeAgent = (agentId: string, reason?: string) =>
+  fetchAPI<any>(`/api/admin/agents/${agentId}/resume${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, { method: 'POST' });
+
+// ── Audit Verification ──
+export const verifyAuditTrail = () =>
+  fetchAPI<{ valid: boolean; events_checked: number; broken_at?: string; error?: string; root_hash?: string }>(
+    '/api/admin/audit/verify'
+  );
+
+// ── Notifications ──
+export const getNotifications = (severity?: string, unreadOnly = false) =>
+  fetchAPI<Array<{
+    id: string;
+    type: string;
+    severity: string;
+    title: string;
+    message: string;
+    resource_type?: string;
+    resource_id?: string;
+    read: boolean;
+    created_at: string;
+  }>>(`/api/notifications?unread_only=${unreadOnly}${severity ? `&severity=${severity}` : ''}`);
+
+export const markNotificationRead = (id: string) =>
+  fetchAPI<{ success: boolean; notification_id: string }>(`/api/notifications/${id}/read`, { method: 'POST' });
+
+export const markAllNotificationsRead = () =>
+  fetchAPI<{ success: boolean; marked_count: number }>('/api/notifications/read-all', { method: 'POST' });
+

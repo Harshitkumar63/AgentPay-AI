@@ -1,4 +1,4 @@
-"""Payment service — Razorpay Test Mode integration, signature verification, and failure recovery."""
+"""Payment service — Razorpay Test Mode integration, signature verification, circuit breaker integration, and failure recovery (Phases 6 & 13)."""
 
 import uuid
 import hmac
@@ -16,6 +16,8 @@ from app.services import (
     trust_service,
     approval_service,
 )
+from app.services.system_control_service import system_control_service
+from app.services.circuit_breaker_service import circuit_breaker_service
 
 logger = logging.getLogger("agentpay.payments")
 
@@ -138,12 +140,28 @@ razorpay_service = RazorpayService()
 
 
 def create_payment_for_order(db: Session, order_id: str) -> dict:
-    """Create Razorpay order and payment record after approval validation."""
+    """Create Razorpay order and payment record after approval & safety validation."""
+    # 1. Global Kill Switch Check
+    sys_chk = system_control_service.check_payments_allowed()
+    if not sys_chk["allowed"]:
+        return {"error": True, "code": sys_chk["error_code"], "message": sys_chk["message"]}
+
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return {"error": True, "code": "ORDER_NOT_FOUND", "message": "Order not found"}
 
-    # Check if order requires approval and verify approval status
+    agent_id = order.agent_id or "default_agent"
+
+    # 2. Circuit Breaker Check
+    cb_chk = circuit_breaker_service.can_execute(db, agent_id)
+    if not cb_chk["allowed"]:
+        return {
+            "error": True,
+            "code": cb_chk.get("error_code", "CIRCUIT_OPEN"),
+            "message": cb_chk.get("message", "Payment initialization blocked by circuit breaker."),
+        }
+
+    # 3. Check if order requires approval and verify approval status
     if order.approval_id:
         appr_check = approval_service.validate_approval(db, order.approval_id, expected_amount=order.amount)
         if not appr_check["valid"]:
@@ -176,6 +194,7 @@ def create_payment_for_order(db: Session, order_id: str) -> dict:
             notes={"order_id": order.id, "merchant_id": order.merchant_id},
         )
     except Exception as e:
+        circuit_breaker_service.record_failure(db, agent_id, reason=str(e))
         audit_service.create_audit_log(
             db,
             actor_type="system",
@@ -186,6 +205,7 @@ def create_payment_for_order(db: Session, order_id: str) -> dict:
             amount=order.amount,
             reason=str(e),
             result="FAILURE",
+            agent_id=agent_id,
         )
         return {"error": True, "code": "RAZORPAY_ERROR", "message": str(e)}
 
@@ -219,6 +239,7 @@ def create_payment_for_order(db: Session, order_id: str) -> dict:
         amount=order.amount,
         currency=order.currency,
         result="SUCCESS",
+        agent_id=agent_id,
         metadata_extra={"razorpay_order_id": rz_order["id"], "demo": rz_order.get("demo", False)},
     )
 
@@ -245,12 +266,14 @@ def verify_and_update_payment(
     if not order:
         return {"error": True, "code": "ORDER_NOT_FOUND", "message": "Order not found"}
 
+    agent_id = order.agent_id or "default_agent"
     is_valid = razorpay_service.verify_payment_signature(
         razorpay_order_id, razorpay_payment_id, razorpay_signature
     )
 
     if not is_valid:
-        trust_service.record_trust_event(db, "payment_failed", agent_id=order.agent_id or "default_agent")
+        trust_service.record_trust_event(db, "payment_failed", agent_id=agent_id)
+        circuit_breaker_service.record_failure(db, agent_id, reason="Invalid payment signature")
         audit_service.create_audit_log(
             db,
             actor_type="system",
@@ -261,6 +284,7 @@ def verify_and_update_payment(
             amount=order.amount,
             result="FAILURE",
             reason="Invalid payment signature",
+            agent_id=agent_id,
         )
         return {"error": True, "code": "INVALID_SIGNATURE", "message": "Payment signature verification failed"}
 
@@ -285,8 +309,9 @@ def verify_and_update_payment(
     if order.agent_id:
         budget_service.record_spending(db, order.amount, agent_id=order.agent_id, merchant_id=order.merchant_id)
 
-    # Record trust success
-    trust_service.record_trust_event(db, "success", agent_id=order.agent_id or "default_agent")
+    # Record trust success & circuit breaker success
+    trust_service.record_trust_event(db, "success", agent_id=agent_id)
+    circuit_breaker_service.record_success(db, agent_id)
 
     db.commit()
 
@@ -300,6 +325,7 @@ def verify_and_update_payment(
         amount=order.amount,
         currency=order.currency,
         result="SUCCESS",
+        agent_id=agent_id,
         metadata_extra={
             "razorpay_payment_id": razorpay_payment_id,
             "razorpay_order_id": razorpay_order_id,
@@ -321,11 +347,12 @@ def record_payment_failure(
     error_code: str = "PAYMENT_FAILED",
     error_description: str = "Payment transaction was declined or failed",
 ) -> dict:
-    """Safely record payment failure and enable retry without duplicate orders."""
+    """Safely record payment failure, trigger circuit breaker count, and enable retry without duplicate orders."""
     order = db.query(Order).filter(Order.razorpay_order_id == razorpay_order_id).first()
     if not order:
         return {"error": True, "message": "Order not found"}
 
+    agent_id = order.agent_id or "default_agent"
     order.payment_status = "failed"
     order.status = "PAYMENT_FAILED"
     now_str = str(datetime.now(timezone.utc))
@@ -341,8 +368,9 @@ def record_payment_failure(
         if razorpay_payment_id:
             payment.razorpay_payment_id = razorpay_payment_id
 
-    # Update trust signals
-    trust_service.record_trust_event(db, "payment_failed", agent_id=order.agent_id or "default_agent")
+    # Update trust signals and circuit breaker failure counters
+    trust_service.record_trust_event(db, "payment_failed", agent_id=agent_id)
+    circuit_breaker_service.record_failure(db, agent_id, reason=f"{error_code}: {error_description}")
 
     db.commit()
 
@@ -357,6 +385,7 @@ def record_payment_failure(
         currency=order.currency,
         reason=f"{error_code}: {error_description}",
         result="FAILURE",
+        agent_id=agent_id,
     )
 
     return {

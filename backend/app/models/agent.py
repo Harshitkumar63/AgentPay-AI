@@ -1,4 +1,4 @@
-"""Agent models for session tracing, budget governance, trust scores, and external AI agents."""
+"""Agent models for Multi-Agent Registry, session tracing, budget governance, trust scores, and circuit breakers."""
 
 import uuid
 from datetime import datetime, timezone, date
@@ -28,16 +28,58 @@ class AgentAction(Base):
 
 
 class Agent(Base):
-    """Registered external or internal AI agent."""
+    """Registered external or internal AI agent in the Multi-Agent Registry."""
     __tablename__ = "agents"
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True, default=lambda: f"agent_{uuid.uuid4().hex[:8]}")
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    api_key_hash: Mapped[str] = mapped_column(String(256), nullable=True, unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    role: Mapped[str] = mapped_column(String(50), default="shopping")  # shopping, payment, growth, support, security, buyer
+    
+    owner: Mapped[str] = mapped_column(String(100), default="system")
+    
+    # Statuses: ACTIVE, PAUSED, DISABLED, SUSPENDED
+    status: Mapped[str] = mapped_column(String(30), default="ACTIVE")
+    
+    # Fine-grained Permissions:
+    # catalog.read, product.search, product.compare, recommendation.read,
+    # cart.create, cart.write, checkout.request, order.create, order.read,
+    # payment.read, refund.request, campaign.propose, campaign.activate,
+    # analytics.read, audit.read, approval.request
+    permissions: Mapped[list] = mapped_column(JSON, default=lambda: ["catalog.read", "product.search", "product.compare", "cart.create", "cart.write", "checkout.request", "order.create"])
+    
+    daily_budget: Mapped[float] = mapped_column(Float, default=10000.0)
+    per_transaction_limit: Mapped[float] = mapped_column(Float, default=5000.0)
+    hourly_limit: Mapped[float] = mapped_column(Float, default=7500.0)
+    trust_score: Mapped[int] = mapped_column(Integer, default=90)
+    risk_level: Mapped[str] = mapped_column(String(20), default="LOW")
+    
+    # Circuit Breaker state
+    failed_payment_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_failure_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    circuit_breaker_state: Mapped[str] = mapped_column(String(20), default="CLOSED")  # CLOSED, OPEN, HALF_OPEN
+    circuit_breaker_tripped: Mapped[bool] = mapped_column(Boolean, default=False)
+    circuit_breaker_reason: Mapped[str] = mapped_column(String(300), nullable=True)
+    circuit_breaker_opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    # Security & API Auth
+    api_key_hash: Mapped[str] = mapped_column(String(256), nullable=True, unique=True, index=True)
     api_key_prefix: Mapped[str] = mapped_column(String(20), nullable=True)
-    scopes: Mapped[dict] = mapped_column(JSON, default=lambda: ["catalog:read", "cart:write", "checkout:create", "payment:read"])
+    scopes: Mapped[list] = mapped_column(JSON, default=lambda: ["catalog:read", "cart:write", "checkout:create", "payment:read"])
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    metadata_extra: Mapped[dict] = mapped_column(JSON, default=dict)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_activity: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    @property
+    def agent_id(self) -> str:
+        return self.id
+
+    @property
+    def transaction_limit(self) -> float:
+        return self.per_transaction_limit
 
 
 class AgentBudget(Base):
@@ -49,13 +91,24 @@ class AgentBudget(Base):
     merchant_id: Mapped[str] = mapped_column(String(50), default="merchant_001")
     daily_limit: Mapped[float] = mapped_column(Float, default=10000.0)
     per_transaction_limit: Mapped[float] = mapped_column(Float, default=5000.0)
+    hourly_limit: Mapped[float] = mapped_column(Float, default=7500.0)
     spent_today: Mapped[float] = mapped_column(Float, default=0.0)
+    spent_this_hour: Mapped[float] = mapped_column(Float, default=0.0)
+    transaction_count_today: Mapped[int] = mapped_column(Integer, default=0)
+    transaction_count_hour: Mapped[int] = mapped_column(Integer, default=0)
+    transaction_count_minute: Mapped[int] = mapped_column(Integer, default=0)
     last_reset_date: Mapped[date] = mapped_column(Date, default=lambda: datetime.now(timezone.utc).date())
+    last_reset_hour: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_reset_minute: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     @property
     def remaining_daily_budget(self) -> float:
         return max(0.0, self.daily_limit - self.spent_today)
+
+    @property
+    def remaining_hourly_budget(self) -> float:
+        return max(0.0, self.hourly_limit - self.spent_this_hour)
 
 
 class AgentTrust(Base):
@@ -69,6 +122,7 @@ class AgentTrust(Base):
     failed_payments: Mapped[int] = mapped_column(Integer, default=0)
     policy_violations: Mapped[int] = mapped_column(Integer, default=0)
     duplicate_requests: Mapped[int] = mapped_column(Integer, default=0)
+    velocity_violations: Mapped[int] = mapped_column(Integer, default=0)
     total_approvals_requested: Mapped[int] = mapped_column(Integer, default=10)
     total_approvals_granted: Mapped[int] = mapped_column(Integer, default=9)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

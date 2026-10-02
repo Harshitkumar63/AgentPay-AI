@@ -17,6 +17,14 @@ import {
   AlertTriangle,
   Cpu,
   Settings as SettingsIcon,
+  Headphones,
+  DollarSign,
+  Activity,
+  History,
+  Code,
+  ShieldCheck,
+  Calculator,
+  Bell,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -26,12 +34,16 @@ const NAV_SECTIONS = [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "AI Shop", href: "/shop", icon: ShoppingBag },
       { label: "AI Buyer Simulator", href: "/ai-buyer", icon: Cpu },
+      { label: "Customer Support", href: "/support", icon: Headphones },
+      { label: "Live Event Stream", href: "/live", icon: Activity },
     ],
   },
   {
     title: "Merchant Growth",
     items: [
       { label: "Growth Center", href: "/growth", icon: TrendingUp },
+      { label: "Pricing Simulator", href: "/pricing", icon: DollarSign },
+      { label: "What-If Simulator", href: "/simulator", icon: Calculator },
       { label: "Products Catalog", href: "/products", icon: Package },
       { label: "Orders & Timeline", href: "/orders", icon: ClipboardList },
       { label: "Revenue Analytics", href: "/analytics", icon: BarChart3 },
@@ -40,11 +52,16 @@ const NAV_SECTIONS = [
   {
     title: "Governance & Security",
     items: [
-      { label: "Agent Trace", href: "/agent", icon: Bot },
+      { label: "Agent Registry & Kill Switch", href: "/agents", icon: Bot },
+      { label: "Agent Trace", href: "/agent", icon: Activity },
+      { label: "Decision Replay", href: "/decisions", icon: History },
+      { label: "Security Alerts", href: "/notifications", icon: Bell },
       { label: "Audit Logs", href: "/audit", icon: Shield },
       { label: "Webhook Monitor", href: "/webhooks", icon: Radio },
       { label: "Policy Simulator", href: "/policies/simulator", icon: Sliders },
-      { label: "Security & Failure Lab", href: "/security", icon: AlertTriangle },
+      { label: "Security Lab", href: "/security", icon: AlertTriangle },
+      { label: "Developer Portal", href: "/developers", icon: Code },
+      { label: "Trust Center", href: "/trust", icon: ShieldCheck },
       { label: "Settings", href: "/settings", icon: SettingsIcon },
     ],
   },

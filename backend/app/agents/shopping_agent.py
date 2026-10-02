@@ -236,28 +236,51 @@ def execute_tool(
                 tags=arguments.get("tags"),
                 merchant_id=merchant_id,
             )
+            is_budget_relaxed = False
+            if not products and arguments.get("max_price"):
+                # If no products matched under max_price, find closest alternatives without max_price
+                alt_products = product_service.search_products(
+                    db,
+                    query=arguments.get("query"),
+                    category=arguments.get("category"),
+                    max_price=None,
+                    min_price=arguments.get("min_price"),
+                    color=arguments.get("color"),
+                    tags=arguments.get("tags"),
+                    merchant_id=merchant_id,
+                )
+                if alt_products:
+                    products = alt_products
+                    is_budget_relaxed = True
+
+            scored_products = [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "category": p.category,
+                    "price": p.price,
+                    "currency": p.currency,
+                    "stock": p.stock,
+                    "tags": p.tags or [],
+                    "image_url": p.image_url,
+                    "available": p.stock > 0 and p.active,
+                    "budget_exceeded": is_budget_relaxed,
+                    "recommendation_score": recommendation_service.calculate_recommendation_score(
+                        p,
+                        target_category=arguments.get("category"),
+                        budget_cap=arguments.get("max_price"),
+                    ),
+                }
+                for p in products
+            ]
+            scored_products.sort(key=lambda x: x["recommendation_score"], reverse=True)
+
             result = {
-                "products": [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "description": p.description,
-                        "category": p.category,
-                        "price": p.price,
-                        "currency": p.currency,
-                        "stock": p.stock,
-                        "tags": p.tags or [],
-                        "image_url": p.image_url,
-                        "available": p.stock > 0 and p.active,
-                        "recommendation_score": recommendation_service.calculate_recommendation_score(
-                            p,
-                            target_category=arguments.get("category"),
-                            budget_cap=arguments.get("max_price"),
-                        ),
-                    }
-                    for p in products
-                ],
-                "count": len(products),
+                "products": scored_products,
+                "count": len(scored_products),
+                "is_budget_relaxed": is_budget_relaxed,
+                "requested_max_price": arguments.get("max_price"),
             }
 
         elif tool_name == "get_product":
@@ -485,6 +508,8 @@ def process_chat(
     tool_call_count = 0
     explanation = None
     limit_reached = False
+    is_budget_relaxed = False
+    requested_max_price = None
 
     is_demo = not llm_provider.is_configured
 
@@ -558,6 +583,9 @@ def process_chat(
             if tool_name in ("search_products", "search") and isinstance(tool_result, dict):
                 found = tool_result.get("products", [])
                 products_found.extend(found)
+                if tool_result.get("is_budget_relaxed"):
+                    is_budget_relaxed = True
+                    requested_max_price = tool_result.get("requested_max_price")
                 if found:
                     top_prod = found[0]
                     excluded = found[1:4] if len(found) > 1 else []
@@ -620,7 +648,14 @@ def process_chat(
     final_message = response.get("content", "")
 
     if is_demo and not final_message:
-        final_message = _generate_demo_response(products_found, cart_data, agent_steps, requires_confirmation)
+        final_message = _generate_demo_response(
+            products_found,
+            cart_data,
+            agent_steps,
+            requires_confirmation,
+            is_budget_relaxed=is_budget_relaxed,
+            requested_max_price=requested_max_price,
+        )
 
     if not final_message and products_found:
         final_message = f"I found {len(products_found)} product(s) matching your request."
@@ -689,11 +724,21 @@ def _update_session_context(ctx: dict, message: str):
             break
 
 
-def _generate_demo_response(products: list, cart: dict | None, steps: list, requires_confirm: bool) -> str:
+def _generate_demo_response(
+    products: list,
+    cart: dict | None,
+    steps: list,
+    requires_confirm: bool,
+    is_budget_relaxed: bool = False,
+    requested_max_price: float | None = None,
+) -> str:
     """Generate dynamic formatted text response for demo mode."""
     parts = []
     if products:
-        parts.append(f"I found **{len(products)} verified product(s)** in the catalog:\n")
+        if is_budget_relaxed and requested_max_price:
+            parts.append(f"⚠️ I couldn't find products strictly under **₹{requested_max_price:,.0f}**, but here is the closest option available in our catalog:\n")
+        else:
+            parts.append(f"I found **{len(products)} verified product(s)** in the catalog:\n")
         for p in products[:4]:
             stock_badge = f"✅ In Stock ({p.get('stock')} available)" if p.get('available', True) else "❌ Out of stock"
             score_badge = f"⭐ Score: {p.get('recommendation_score', 90)}/100"
@@ -712,12 +757,16 @@ def _generate_demo_response(products: list, cart: dict | None, steps: list, requ
         parts.append("\nReady to complete your purchase? Say **'Buy now'** or click **'Confirm Checkout'**.")
     elif requires_confirm:
         parts.append("🛡️ **Order Prepared & Gated by Policy Engine!**\nPlease review the purchase summary below and confirm authorization.")
-    elif steps:
-        for s in steps:
-            icon = "❌" if s["status"] in ("FAILED", "BLOCKED") else "⚡"
-            parts.append(f"{icon} **{s['tool']}**: {s['output_summary']}")
     else:
-        parts.append("I am your AgentPay AI shopping assistant. How can I help you today?")
+        search_step = next((s for s in steps if s.get("tool") in ("search_products", "search")), None)
+        if search_step:
+            parts.append("I couldn't find any products matching your specific query. Try searching for **'laptops'**, **'running shoes'**, or **'backpack'**.")
+        elif steps:
+            for s in steps:
+                icon = "❌" if s["status"] in ("FAILED", "BLOCKED") else "⚡"
+                parts.append(f"{icon} **{s['tool']}**: {s['output_summary']}")
+        else:
+            parts.append("I am your AgentPay AI shopping assistant. How can I help you today?")
 
     return "\n".join(parts)
 
@@ -728,7 +777,10 @@ def _summarize_output(result: Any) -> str:
         if "error" in result:
             return f"Error: {result['error']}"
         if "products" in result:
-            return f"Retrieved {result.get('count', len(result['products']))} items"
+            count = result.get("count", len(result["products"]))
+            if result.get("is_budget_relaxed"):
+                return f"Retrieved {count} closest items (above ₹{result.get('requested_max_price', 0):,.0f})"
+            return f"Retrieved {count} items"
         if "items" in result:
             return f"Cart has {len(result.get('items', []))} item(s) (₹{result.get('total', 0):,.0f})"
         if "order" in result:

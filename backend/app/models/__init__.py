@@ -10,6 +10,9 @@ from app.models.webhook import WebhookEvent
 from app.models.approval import Approval
 from app.models.recommendation_event import RecommendationEvent
 from app.models.campaign import CampaignProposal
+from app.models.refund import Refund
+from app.models.customer_preference import CustomerPreference
+from app.models.experiment import Experiment, ExperimentVariant
 
 __all__ = [
     "Merchant", "Product", "Cart", "CartItem",
@@ -17,4 +20,5 @@ __all__ = [
     "Agent", "AgentBudget", "AgentTrust",
     "Policy", "WebhookEvent", "Approval",
     "RecommendationEvent", "CampaignProposal",
+    "Refund", "CustomerPreference", "Experiment", "ExperimentVariant",
 ]
